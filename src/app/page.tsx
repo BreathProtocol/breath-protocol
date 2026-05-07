@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
 import { useConnect, useAccount, useSignMessage, useDisconnect } from "wagmi";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInWithGoogle, signInWithWallet } = useAuth();
+  const { user, loading, signInWithGoogle, signInWithWallet, signInWithSolana } = useAuth();
+  const solana = useSolanaWallet();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -35,13 +37,37 @@ export default function LoginPage() {
 
   const handleWalletSign = async (walletAddress: string) => {
     try {
-      const message = `Sign in to Breath Protocol\n\nWallet: ${walletAddress}\nTimestamp: ${Date.now()}`;
+      // Deterministic message — same wallet always produces the same signature,
+      // which becomes a stable password in Supabase. (Was previously broken
+      // by including Date.now() in the message.)
+      const message = `Sign in to Breath Protocol\n\nWallet: ${walletAddress}`;
       const signature = await signMessageAsync({ message });
       await signInWithWallet(walletAddress, signature, message);
       router.push("/dashboard");
     } catch {
       setWalletError("Signature rejected or authentication failed.");
       disconnect();
+      setAuthLoading(null);
+    }
+  };
+
+  const handleSolanaSignIn = async () => {
+    setWalletError(null);
+    setAuthLoading("solana");
+    try {
+      await solana.connect();
+      // After connect, the provider's publicKey is available.
+      // Read it freshly from the context — useSolanaWallet's value updates async.
+      // Loop a tick then sign.
+      await new Promise((r) => setTimeout(r, 50));
+      const addr = solana.publicKey?.toBase58();
+      if (!addr) throw new Error("No Solana key");
+      const message = `Sign in to Breath Protocol\n\nWallet: ${addr}`;
+      const signature = await solana.signMessage(message);
+      await signInWithSolana(addr, signature);
+      router.push("/dashboard");
+    } catch {
+      setWalletError("Solana sign-in cancelled or failed.");
       setAuthLoading(null);
     }
   };
@@ -125,7 +151,7 @@ export default function LoginPage() {
         {/* Sign-in row */}
         <div className="mt-14 mx-auto w-full max-w-[480px]">
           {/* Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={handleGoogle}
               disabled={authLoading !== null}
@@ -141,6 +167,24 @@ export default function LoginPage() {
                 </>
               ) : (
                 <span>Continue with Google</span>
+              )}
+            </button>
+
+            <button
+              onClick={handleSolanaSignIn}
+              disabled={authLoading !== null || !solana.ready}
+              className="bp-button flex items-center justify-center gap-3"
+            >
+              {authLoading === "solana" ? (
+                <>
+                  <span
+                    className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
+                    style={{ background: "var(--teal)" }}
+                  />
+                  <span>Signing</span>
+                </>
+              ) : (
+                <span>{solana.ready ? "Solana · Web3Auth" : "Init…"}</span>
               )}
             </button>
 
@@ -161,7 +205,7 @@ export default function LoginPage() {
                   <span>Signing</span>
                 </>
               ) : (
-                <span>Connect Wallet</span>
+                <span>EVM Wallet</span>
               )}
             </button>
           </div>
