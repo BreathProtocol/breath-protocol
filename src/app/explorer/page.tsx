@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
+import BreathPrintSection from "@/components/explorer/BreathPrintSection";
 
 const stats = [
   { label: "TOTAL ATTESTATIONS", value: "12,847" },
@@ -85,6 +86,11 @@ export default function ExplorerPage() {
               Every proof, permanently recorded.
             </p>
           </div>
+
+          {/* BreathPrint live on-chain section */}
+          <Suspense fallback={<div className="bp-card p-8 bp-label" style={{ opacity: 0.5 }}>LOADING · BREATHPRINT</div>}>
+            <BreathPrintSection />
+          </Suspense>
 
           {/* Stats row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
