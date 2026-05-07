@@ -11,6 +11,7 @@ interface AuthContextValue {
   walletAddress: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithWallet: (address: string, signature: string, message: string) => Promise<void>;
+  signInWithSolana: (address: string, signature: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextValue>({
   walletAddress: null,
   signInWithGoogle: async () => {},
   signInWithWallet: async () => {},
+  signInWithSolana: async () => {},
   signOut: async () => {},
 });
 
@@ -106,6 +108,42 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     setWalletAddress(address);
   }, []);
 
+  /**
+   * Sign in with a Solana wallet (via Web3Auth).
+   * Uses the ed25519 signature of a deterministic message as the Supabase
+   * password — same key + same message → same signature → same password.
+   */
+  const signInWithSolana = useCallback(async (address: string, signature: string) => {
+    const walletEmail = `sol_${address.toLowerCase()}@wallet.breathprotocol.io`;
+    // Truncate signature to a Supabase-acceptable length (max 72 chars).
+    const walletPassword = signature.slice(0, 60);
+
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: walletEmail,
+      password: walletPassword,
+      options: {
+        data: {
+          wallet_address: address,
+          chain: "solana",
+          full_name: `${address.slice(0, 4)}…${address.slice(-4)}`,
+          auth_method: "solana_web3auth",
+        },
+      },
+    });
+
+    if (signUpError?.message?.includes("already registered")) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: walletEmail,
+        password: walletPassword,
+      });
+      if (signInError) {
+        throw new Error("Solana wallet authentication failed.");
+      }
+    }
+
+    setWalletAddress(address);
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setWalletAddress(null);
@@ -120,6 +158,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         walletAddress,
         signInWithGoogle,
         signInWithWallet,
+        signInWithSolana,
         signOut,
       }}
     >
