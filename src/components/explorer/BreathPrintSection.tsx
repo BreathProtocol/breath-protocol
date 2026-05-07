@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PublicKey } from "@solana/web3.js";
 import { createRpc } from "@lightprotocol/stateless.js";
+import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
+import SolanaConnectButton from "@/components/auth/SolanaConnectButton";
 
 const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY ?? "";
 const PROGRAM_ID =
@@ -50,7 +52,11 @@ export interface BreathPrintSectionProps {
 
 export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSectionProps = {}) {
   const params = useSearchParams();
-  const walletStr = walletProp ?? params.get("wallet") ?? "";
+  const { publicKey: connectedKey } = useSolanaWallet();
+
+  // Priority: explicit prop → connected Web3Auth wallet → ?wallet= URL param
+  const walletStr =
+    walletProp ?? connectedKey?.toBase58() ?? params.get("wallet") ?? "";
 
   const wallet = useMemo<PublicKey | null>(() => {
     if (!walletStr) return null;
@@ -106,21 +112,25 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
             ZK-compressed biometric commitments on Solana {NETWORK}. ~0.000015 SOL per attestation.
           </p>
         </div>
-        <a
-          href={solscanAccount(PROGRAM_ID)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bp-label"
-          style={{ fontSize: "10px", color: "var(--teal)" }}
-        >
-          PROGRAM {shortHash(PROGRAM_ID, 6, 4)} ↗
-        </a>
+        <div className="flex flex-col items-end gap-2">
+          <SolanaConnectButton />
+          <a
+            href={solscanAccount(PROGRAM_ID)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bp-label"
+            style={{ fontSize: "10px", color: "var(--teal)" }}
+          >
+            PROGRAM {shortHash(PROGRAM_ID, 6, 4)} ↗
+          </a>
+        </div>
       </div>
 
       {!wallet && (
         <div className="text-sm bp-editorial" style={{ opacity: 0.65 }}>
-          No specimen selected. Append <code>?wallet=&lt;solana_pubkey&gt;</code> to the URL
-          to inspect a wallet's BreathPrint attestations.
+          Connect a Solana wallet via Web3Auth to view your on-chain BreathPrint
+          attestations. You can also append <code>?wallet=&lt;solana_pubkey&gt;</code>
+          to inspect any specimen.
         </div>
       )}
 

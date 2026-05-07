@@ -3,6 +3,7 @@ import "./globals.css";
 import ThemeProvider from "@/components/layout/ThemeProvider";
 import AuthProvider from "@/components/auth/AuthProvider";
 import Web3Provider from "@/components/auth/Web3Provider";
+import Web3AuthSolanaProvider from "@/components/auth/Web3AuthSolanaProvider";
 import AmbientBackground from "@/components/layout/AmbientBackground";
 import HUD from "@/components/layout/HUD";
 import Cursor from "@/components/layout/Cursor";
@@ -35,11 +36,13 @@ export default function RootLayout({
       <body className="h-full overflow-hidden">
         <AmbientBackground />
         <Web3Provider>
-          <AuthProvider>
-            <ThemeProvider>
-              <div className="relative z-[1] h-full">{children}</div>
-            </ThemeProvider>
-          </AuthProvider>
+          <Web3AuthSolanaProvider>
+            <AuthProvider>
+              <ThemeProvider>
+                <div className="relative z-[1] h-full">{children}</div>
+              </ThemeProvider>
+            </AuthProvider>
+          </Web3AuthSolanaProvider>
         </Web3Provider>
         <HUD />
         <Cursor />
