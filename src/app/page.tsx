@@ -170,7 +170,7 @@ export default function LoginPage() {
         {/* Sign-in row */}
         <div className="mt-14 mx-auto w-full max-w-[480px]">
           {/* Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={handleGoogle}
               disabled={authLoading !== null}
@@ -186,6 +186,24 @@ export default function LoginPage() {
                 </>
               ) : (
                 <span>Continue with Google</span>
+              )}
+            </button>
+
+            <button
+              onClick={handleSolanaWeb3Auth}
+              disabled={authLoading !== null}
+              className="bp-button flex items-center justify-center gap-3"
+            >
+              {authLoading === "solana-w3a" ? (
+                <>
+                  <span
+                    className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
+                    style={{ background: "var(--teal)" }}
+                  />
+                  <span>Signing</span>
+                </>
+              ) : (
+                <span>{w3a.ready ? "Solana · Web3Auth" : "Init…"}</span>
               )}
             </button>
 
