@@ -22,20 +22,18 @@ export default function LoginPage() {
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
 
+  // On mount: clear any stale wagmi connection from previous EVM-flow attempts.
+  useEffect(() => {
+    try { disconnect(); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Redirect to dashboard if already logged in
   useEffect(() => {
     if (!loading && user) {
       router.push("/dashboard");
     }
   }, [user, loading, router]);
-
-  // When wallet connects, sign message and authenticate with Supabase
-  useEffect(() => {
-    if (isConnected && address && authLoading === "wallet") {
-      handleWalletSign(address);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address]);
 
   const handleWalletSign = async (walletAddress: string) => {
     try {
@@ -95,7 +93,7 @@ export default function LoginPage() {
 
   const handleNativeSolana = async (walletName: WalletName) => {
     setWalletError(null);
-    setAuthLoading("wallet");
+    setAuthLoading("solana");
     try {
       // Bypass React hook snapshot — talk to the adapter directly.
       const entry = sol.wallets.find((w) => w.adapter.name === walletName);
@@ -233,7 +231,7 @@ export default function LoginPage() {
               disabled={authLoading !== null}
               className="bp-button flex items-center justify-center gap-3"
             >
-              {authLoading === "wallet" ? (
+              {(authLoading === "wallet" || authLoading === "solana") ? (
                 <>
                   <span
                     className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
