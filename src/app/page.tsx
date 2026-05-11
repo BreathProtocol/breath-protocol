@@ -10,7 +10,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
   const w3a = useSolanaWallet();
 
@@ -276,63 +275,6 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-
-              {/* Wallet list */}
-              <div className="px-6 pb-4 space-y-2">
-                <div className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.3em", color: "var(--dim)", textTransform: "uppercase", padding: "4px 4px 8px" }}>— Solana wallets</div>
-                {/* Native Solana wallets — Phantom + Solflare via wallet-adapter */}
-                {(["Phantom", "Solflare"] as const).map((name, i) => (
-                  <button
-                    key={`sol-${name}`}
-                    onClick={() => handleNativeSolana(name as WalletName)}
-                    disabled={authLoading !== null}
-                    className="w-full flex items-center justify-between px-4 py-4 transition-all duration-200 group disabled:opacity-50"
-                    style={{
-                      border: "1px solid var(--bone-10)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--teal)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--bone-10)";
-                    }}
-                  >
-                    <div className="text-left">
-                      <div className="bp-label" style={{ fontSize: "10px", marginBottom: "6px" }}>
-                        SOLANA · {String(i + 1).padStart(2, "0")}
-                      </div>
-                      <div
-                        className="font-display"
-                        style={{
-                          fontWeight: 300,
-                          fontSize: "18px",
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          color: "var(--bone)",
-                        }}
-                      >
-                        {name}
-                      </div>
-                    </div>
-                    <span className="bp-label" style={{ fontSize: "10px" }}>→</span>
-                  </button>
-                ))}
-                </div>
-
-              {/* Footer */}
-              <div
-                className="px-6 py-4"
-                style={{ borderTop: "1px solid var(--bone-10)" }}
-              >
-                <p className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.2em" }}>
-                  By connecting, you sign a message to verify wallet ownership.
-                </p>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
