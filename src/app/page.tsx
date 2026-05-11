@@ -44,73 +44,36 @@ export default function LoginPage() {
     setWalletError(null);
     setAuthLoading("solana");
     try {
-      type SolanaProvider = {
-        publicKey?: { toBase58: () => string } | null;
-        isConnected?: boolean;
-        connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
-        disconnect?: () => Promise<void>;
-        signMessage: (
-          m: Uint8Array
-        ) => Promise<{ signature: Uint8Array } | Uint8Array>;
-      };
-
-      const w = (typeof window !== "undefined" ? window : ({} as Record<string, unknown>)) as Record<string, unknown>;
+      const { getWallets } = await import("@wallet-standard/app");
       const name = String(walletName);
 
-      let provider: SolanaProvider | undefined;
-      if (name === "Phantom") {
-        const phantomRoot = w["phantom"] as
-          | { solana?: SolanaProvider & { isPhantom?: boolean } }
-          | undefined;
-        provider = phantomRoot?.solana;
-        if (!provider) {
-          throw new Error("Phantom is not installed. Install it from phantom.app and reload this page.");
-        }
-        // Diagnostic: log who actually responded. Brave's built-in wallet
-        // sometimes hijacks window.phantom and returns generic errors.
-        const isReal = !!(provider as { isPhantom?: boolean }).isPhantom;
-        console.info("[phantom detect]", {
-          isPhantom: isReal,
-          hasSolflare: !!w["solflare"],
-          hasBraveWallet: !!(w as { braveSolana?: unknown }).braveSolana,
-        });
-        if (!isReal) {
-          throw new Error(
-            "Brave or another extension is intercepting Phantom. " +
-              "In Brave: Settings → Wallet → Default cryptocurrency wallet → 'Extensions (no fallback)', then reload."
-          );
-        }
-      } else if (name === "Solflare") {
-        provider = w["solflare"] as SolanaProvider | undefined;
-        if (!provider) {
-          throw new Error("Solflare is not installed. Install it from solflare.com and reload this page.");
-        }
-      } else {
-        throw new Error(`Unsupported wallet: ${name}`);
+      // Trigger Phantom/Solflare auto-registration on the page (they listen for
+      // the wallet-standard:app-ready event before announcing themselves).
+      window.dispatchEvent(new Event("wallet-standard:app-ready"));
+      // Small delay so just-registered wallets show up.
+      await new Promise((r) => setTimeout(r, 100));
+
+      const found = getWallets()
+        .get()
+        .find((w) => w.name.toLowerCase() === name.toLowerCase());
+      if (!found) {
+        const installed = getWallets().get().map((w) => w.name).join(", ") || "none";
+        throw new Error(
+          `${name} not found. Detected Standard Wallets: ${installed}. ` +
+            `Install ${name} and reload.`
+        );
       }
+      console.info("[wallet-standard] picked", found.name);
 
-      // Trigger the wallet popup
-      const connectRes = await provider.connect();
-      const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
-      if (!pk) throw new Error(`${name} did not return a public key.`);
-      const pubkey = pk.toBase58();
-      console.info("[phantom] connected", { pubkey, isConnected: provider.isConnected });
-
-      // Hand off to Supabase's native Web3 sign-in (SIWS).
-      // Supabase generates the canonical message, the wallet signs it,
-      // Supabase verifies + issues a session — all one call.
-      // Let Supabase auto-detect the wallet via @wallet-standard.
-      // Phantom + Solflare both register themselves as Standard Wallets, and
-      // passing a legacy injected provider here trips Phantom's signIn.
       const { error: web3Err } = await supabase.auth.signInWithWeb3({
         chain: "solana",
         statement: "I accept the Breath Protocol Terms of Service.",
-      });
+        wallet: found,
+      } as unknown as Parameters<typeof supabase.auth.signInWithWeb3>[0]);
       if (web3Err) {
         console.error("[supabase web3]", web3Err);
         throw new Error(web3Err.message);
       }
-      console.info("[supabase web3] sign-in success", pubkey);
       router.push("/dashboard");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e ?? "");
