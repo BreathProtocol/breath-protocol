@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { supabase } from "@/lib/supabase";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletName } from "@solana/wallet-adapter-base";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
+  const { user, loading, signInWithGoogle } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -95,80 +96,20 @@ export default function LoginPage() {
       const pubkey = pk.toBase58();
       console.info("[phantom] connected", { pubkey, isConnected: provider.isConnected });
 
-      const msg = new TextEncoder().encode(
-        `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
-      );
-
-      // Try three signing strategies in order until one yields a signature.
-      // Phantom's signMessage occasionally throws "Me: Unexpected error" for
-      // reasons that are wholly internal — falling back to the RPC-style
-      // `request({ method: "signMessage" })` path is more reliable.
-      let sigBytes: Uint8Array | null = null;
-      const errors: unknown[] = [];
-
-      // Strategy A: provider.signMessage(uint8Array) — the documented form
-      try {
-        const r = await provider.signMessage(msg);
-        sigBytes =
-          r instanceof Uint8Array
-            ? r
-            : (r as { signature: Uint8Array }).signature;
-        if (!sigBytes?.length) sigBytes = null;
-      } catch (e) {
-        console.warn("[phantom] strategy A (signMessage) failed:", e, {
-          name: (e as Error)?.name,
-          message: (e as Error)?.message,
-          code: (e as { code?: unknown })?.code,
-          stack: (e as Error)?.stack,
-        });
-        errors.push(e);
+      // Hand off to Supabase's native Web3 sign-in (SIWS).
+      // Supabase generates the canonical message, the wallet signs it,
+      // Supabase verifies + issues a session — all one call.
+      type Web3WalletArg = Parameters<typeof supabase.auth.signInWithWeb3>[0]["wallet"];
+      const { error: web3Err } = await supabase.auth.signInWithWeb3({
+        chain: "solana",
+        statement: "I accept the Breath Protocol Terms of Service.",
+        wallet: provider as unknown as Web3WalletArg,
+      });
+      if (web3Err) {
+        console.error("[supabase web3]", web3Err);
+        throw new Error(web3Err.message);
       }
-
-      // Strategy B: RPC-style request({ method: "signMessage", params: { message } })
-      if (!sigBytes) {
-        try {
-          const reqProvider = provider as unknown as {
-            request: (args: { method: string; params: Record<string, unknown> }) => Promise<{
-              signature: Uint8Array | number[] | string;
-            }>;
-          };
-          if (typeof reqProvider.request === "function") {
-            const r = await reqProvider.request({
-              method: "signMessage",
-              params: { message: msg, display: "utf8" },
-            });
-            const raw = r?.signature;
-            if (raw instanceof Uint8Array) sigBytes = raw;
-            else if (Array.isArray(raw)) sigBytes = new Uint8Array(raw);
-            else if (typeof raw === "string") {
-              // hex string — convert
-              const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
-              const bytes = new Uint8Array(hex.length / 2);
-              for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-              }
-              sigBytes = bytes;
-            }
-            if (!sigBytes?.length) sigBytes = null;
-          }
-        } catch (e) {
-          console.warn("[phantom] strategy B (request) failed:", e);
-          errors.push(e);
-        }
-      }
-
-      if (!sigBytes) {
-        const lastErr = errors[errors.length - 1];
-        const lastMsg =
-          lastErr instanceof Error ? lastErr.message : String(lastErr ?? "");
-        throw new Error(
-          `${name} signMessage failed: ${lastMsg || "no strategy succeeded"}. ` +
-            `Open the browser console (right-click → Inspect → Console) for the full error chain.`
-        );
-      }
-      const sigBase64 = btoa(String.fromCharCode(...sigBytes));
-
-      await signInWithSolana(pubkey, sigBase64);
+      console.info("[supabase web3] sign-in success", pubkey);
       router.push("/dashboard");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e ?? "");
