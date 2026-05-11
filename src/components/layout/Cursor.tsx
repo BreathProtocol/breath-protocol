@@ -53,7 +53,7 @@ export default function Cursor() {
       className="hidden md:block fixed top-0 left-0 z-[100] pointer-events-none w-6 h-6 rounded-full"
       style={{
         border: "1px solid var(--teal)",
-        boxShadow: "0 0 8px rgba(122, 224, 212, 0.4)",
+        boxShadow: "0 0 8px rgba(201, 123, 94, 0.4)",
         willChange: "transform",
       }}
     >

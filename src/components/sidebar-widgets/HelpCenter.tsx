@@ -41,7 +41,7 @@ export default function HelpCenter() {
         {articles.map((article) => (
           <button
             key={article.title}
-            className="w-full py-3 text-left flex items-start gap-4 group transition-colors hover:bg-[rgba(122,224,212,0.04)]"
+            className="w-full py-3 text-left flex items-start gap-4 group transition-colors hover:bg-[rgba(201, 123, 94,0.04)]"
             style={{ borderTop: "1px solid var(--bone-10)" }}
           >
             <span

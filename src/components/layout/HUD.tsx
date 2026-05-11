@@ -74,7 +74,6 @@ export default function HUD() {
           Vertebra Atlas
         </div>
       </div>
-      </div>
 
       {/* Top-right: system status */}
       {showSystemBadge && (

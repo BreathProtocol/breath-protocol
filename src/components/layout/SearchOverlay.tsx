@@ -212,7 +212,7 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                       <button
                         key={term}
                         onClick={() => setQuery(term)}
-                        className="w-full flex items-center justify-between px-3 py-3 bp-label transition-colors hover:bg-[rgba(122,224,212,0.05)]"
+                        className="w-full flex items-center justify-between px-3 py-3 bp-label transition-colors hover:bg-[rgba(201, 123, 94,0.05)]"
                         style={{ fontSize: "11px", color: "var(--bone)" }}
                       >
                         <span>{term}</span>
@@ -262,7 +262,7 @@ export default function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                       key={link.label}
                       href={link.href}
                       onClick={onClose}
-                      className="flex items-center gap-4 px-4 py-4 group transition-colors hover:bg-[rgba(122,224,212,0.05)]"
+                      className="flex items-center gap-4 px-4 py-4 group transition-colors hover:bg-[rgba(201, 123, 94,0.05)]"
                     >
                       <Icon
                         className="w-[14px] h-[14px] flex-shrink-0"

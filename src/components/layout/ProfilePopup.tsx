@@ -157,18 +157,16 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
 
           {/* Menu */}
           <div className="py-2">
-            <button
-              onClick={() => {
-                const token = session?.access_token;
-                if (token) {
-                  window.open(
-                    `https://breathkyc.vercel.app/verify?token=${token}`,
-                    "_blank"
-                  );
-                  onClose();
-                }
-              }}
-              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(122,224,212,0.05)]"
+            <a
+              href={
+                session?.access_token
+                  ? `https://verify.breath.id/verify?token=${session.access_token}`
+                  : "https://verify.breath.id/verify"
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => onClose()}
+              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(201,123,94,0.05)]"
               style={menuItemStyle}
             >
               <Fingerprint
@@ -184,7 +182,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
             </a>
 
             <button
-              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(122,224,212,0.05)]"
+              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(201, 123, 94,0.05)]"
               style={menuItemStyle}
             >
               <Wallet
@@ -200,7 +198,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
             </button>
 
             <button
-              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(122,224,212,0.05)]"
+              className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(201, 123, 94,0.05)]"
               style={menuItemStyle}
             >
               <AppWindow

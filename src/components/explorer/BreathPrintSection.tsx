@@ -185,7 +185,7 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
               style={{ borderLeft: "2px solid transparent", borderBottom: "1px solid var(--bone-10)" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderLeftColor = "var(--teal)";
-                e.currentTarget.style.background = "rgba(122, 224, 212, 0.03)";
+                e.currentTarget.style.background = "rgba(201, 123, 94, 0.03)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderLeftColor = "transparent";

@@ -38,7 +38,7 @@ export default function BreathIndex() {
         <span
           className="absolute inset-4 rounded-full animate-dot-pulse"
           style={{
-            border: "1px solid rgba(122, 224, 212, 0.15)",
+            border: "1px solid rgba(201, 123, 94, 0.15)",
             animationDuration: "5s",
             animationDelay: "0.5s",
           }}
@@ -46,7 +46,7 @@ export default function BreathIndex() {
         <span
           className="absolute inset-8 rounded-full animate-dot-pulse"
           style={{
-            border: "1px solid rgba(122, 224, 212, 0.1)",
+            border: "1px solid rgba(201, 123, 94, 0.1)",
             animationDuration: "6s",
             animationDelay: "1s",
           }}

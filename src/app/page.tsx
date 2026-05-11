@@ -268,7 +268,7 @@ export default function LoginPage() {
               className="w-full max-w-[420px] pointer-events-auto animate-fade-in-up"
               style={{
                 background: "rgba(7, 8, 12, 0.92)",
-                border: "1px solid rgba(232, 230, 222, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
                 backdropFilter: "blur(20px)",
                 animationDuration: "0.25s",
               }}
@@ -307,8 +307,8 @@ export default function LoginPage() {
                 <div
                   className="mx-6 mb-4 px-4 py-3"
                   style={{
-                    border: "1px solid rgba(232, 230, 222, 0.18)",
-                    background: "rgba(122, 224, 212, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.18)",
+                    background: "rgba(201, 123, 94, 0.05)",
                   }}
                 >
                   <p
@@ -329,7 +329,7 @@ export default function LoginPage() {
                     disabled={isConnecting}
                     className="w-full flex items-center justify-between px-4 py-4 transition-all duration-200 group disabled:opacity-50"
                     style={{
-                      border: "1px solid rgba(232, 230, 222, 0.12)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
                       background: "transparent",
                     }}
                     onMouseEnter={(e) => {
@@ -337,7 +337,7 @@ export default function LoginPage() {
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor =
-                        "rgba(232, 230, 222, 0.12)";
+                        "rgba(255, 255, 255, 0.12)";
                     }}
                   >
                     <div className="text-left">
@@ -385,7 +385,7 @@ export default function LoginPage() {
               {/* Footer */}
               <div
                 className="px-6 py-4"
-                style={{ borderTop: "1px solid rgba(232, 230, 222, 0.06)" }}
+                style={{ borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}
               >
                 <p className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.2em" }}>
                   By connecting, you sign a message to verify wallet ownership.

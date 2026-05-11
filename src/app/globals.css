@@ -2,22 +2,23 @@
 
 /* ── Breath Protocol 2 — Obsidian / Bone / Teal ─────────── */
 :root {
-  --obsidian: #07080C;
-  --nebula:   #101526;
-  --violet:   #2A1D45;
-  --teal:     #7AE0D4;
-  --bone:     #E8E6DE;
-  --dim:      #5c6170;
+  /* ── Breath Protocol — White / Bone / Terracotta ─────── */
+  --obsidian: #FFFFFF;   /* page bg */
+  --nebula:   #FFFFFF;   /* surface */
+  --violet:   #F2F2F2;   /* light grey accent */
+  --teal:     #C97B5E;   /* terracotta accent */
+  --bone:     #1F1A14;   /* near-black foreground */
+  --dim:      #807466;   /* muted brown */
 
   /* Derived surfaces */
-  --card-bg:           rgba(16, 21, 38, 0.4);
-  --card-border:       rgba(232, 230, 222, 0.12);
-  --card-border-soft:  rgba(232, 230, 222, 0.08);
-  --bone-20:           rgba(232, 230, 222, 0.2);
-  --bone-10:           rgba(232, 230, 222, 0.1);
-  --bone-05:           rgba(232, 230, 222, 0.05);
-  --teal-20:           rgba(122, 224, 212, 0.2);
-  --teal-10:           rgba(122, 224, 212, 0.1);
+  --card-bg:           rgba(255, 255, 255, 0.65);
+  --card-border:       rgba(31, 26, 20, 0.14);
+  --card-border-soft:  rgba(31, 26, 20, 0.08);
+  --bone-20:           rgba(31, 26, 20, 0.2);
+  --bone-10:           rgba(31, 26, 20, 0.1);
+  --bone-05:           rgba(31, 26, 20, 0.05);
+  --teal-20:           rgba(201, 123, 94, 0.2);
+  --teal-10:           rgba(201, 123, 94, 0.1);
 }
 
 @theme inline {

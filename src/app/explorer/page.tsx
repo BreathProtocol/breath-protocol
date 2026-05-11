@@ -144,7 +144,7 @@ export default function ExplorerPage() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderLeftColor = "var(--teal)";
-                  e.currentTarget.style.background = "rgba(122, 224, 212, 0.03)";
+                  e.currentTarget.style.background = "rgba(201, 123, 94, 0.03)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderLeftColor = "transparent";
