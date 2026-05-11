@@ -51,11 +51,11 @@ export interface BreathPrintSectionProps {
 
 export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSectionProps = {}) {
   const params = useSearchParams();
-  const { publicKey: connectedKey } = useAuth();
+  const { walletAddress: connectedAddr } = useAuth();
 
   // Priority: explicit prop → connected Web3Auth wallet → ?wallet= URL param
   const walletStr =
-    walletProp ?? connectedKey?.toBase58() ?? params.get("wallet") ?? "";
+    walletProp ?? connectedAddr ?? params.get("wallet") ?? "";
 
   const wallet = useMemo<PublicKey | null>(() => {
     if (!walletStr) return null;
