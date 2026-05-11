@@ -98,34 +98,39 @@ export default function LoginPage() {
     setWalletError(null);
     setAuthLoading("solana");
     try {
-      const w = (typeof window !== "undefined" ? window : {}) as Record<string, unknown>;
-      let provider: {
+      type SolanaProvider = {
         publicKey?: { toBase58: () => string } | null;
         isConnected?: boolean;
         connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
         disconnect?: () => Promise<void>;
-        signMessage: (m: Uint8Array, encoding?: string) => Promise<{ signature: Uint8Array } | Uint8Array>;
-      } | null = null;
+        signMessage: (
+          m: Uint8Array,
+          encoding?: string
+        ) => Promise<{ signature: Uint8Array } | Uint8Array>;
+      };
 
-      if (walletName === ("Phantom" as WalletName)) {
-        const root = w["phantom"] as { solana?: typeof provider } | undefined;
-        provider = root?.solana ?? null;
+      const w = (typeof window !== "undefined" ? window : ({} as Record<string, unknown>)) as Record<string, unknown>;
+      const name = String(walletName);
+
+      let provider: SolanaProvider | undefined;
+      if (name === "Phantom") {
+        provider = (w["phantom"] as { solana?: SolanaProvider } | undefined)?.solana;
         if (!provider) {
           throw new Error("Phantom is not installed. Install it from phantom.app and reload this page.");
         }
-      } else if (walletName === ("Solflare" as WalletName)) {
-        provider = (w["solflare"] as typeof provider) ?? null;
+      } else if (name === "Solflare") {
+        provider = w["solflare"] as SolanaProvider | undefined;
         if (!provider) {
           throw new Error("Solflare is not installed. Install it from solflare.com and reload this page.");
         }
       } else {
-        throw new Error(`Unsupported wallet: ${String(walletName)}`);
+        throw new Error(`Unsupported wallet: ${name}`);
       }
 
       // Trigger the wallet popup
       const connectRes = await provider.connect();
       const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
-      if (!pk) throw new Error(`${String(walletName)} did not return a public key.`);
+      if (!pk) throw new Error(`${name} did not return a public key.`);
       const pubkey = pk.toBase58();
 
       // Sign the canonical message
@@ -138,7 +143,7 @@ export default function LoginPage() {
           ? signRes
           : (signRes as { signature: Uint8Array }).signature;
       if (!sigBytes || !sigBytes.length) {
-        throw new Error(`${String(walletName)} returned an empty signature.`);
+        throw new Error(`${name} returned an empty signature.`);
       }
       const sigBase64 = btoa(String.fromCharCode(...sigBytes));
 
