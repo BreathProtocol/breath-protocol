@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
 import { useConnect, useAccount, useSignMessage, useDisconnect } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletName } from "@solana/wallet-adapter-base";
@@ -11,7 +10,6 @@ import { WalletName } from "@solana/wallet-adapter-base";
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, signInWithGoogle, signInWithWallet, signInWithSolana } = useAuth();
-  const solana = useSolanaWallet();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -55,27 +53,6 @@ export default function LoginPage() {
         setWalletError("Authentication failed. Open the browser console for details.");
       }
       disconnect();
-      setAuthLoading(null);
-    }
-  };
-
-  const handleSolanaSignIn = async () => {
-    setWalletError(null);
-    setAuthLoading("solana");
-    try {
-      await solana.connect();
-      // After connect, the provider's publicKey is available.
-      // Read it freshly from the context — useSolanaWallet's value updates async.
-      // Loop a tick then sign.
-      await new Promise((r) => setTimeout(r, 50));
-      const addr = solana.publicKey?.toBase58();
-      if (!addr) throw new Error("No Solana key");
-      const message = `Sign in to Breath Protocol\n\nWallet: ${addr}`;
-      const signature = await solana.signMessage(message);
-      await signInWithSolana(addr, signature);
-      router.push("/dashboard");
-    } catch {
-      setWalletError("Solana sign-in cancelled or failed.");
       setAuthLoading(null);
     }
   };
