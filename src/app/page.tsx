@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletName } from "@solana/wallet-adapter-base";
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const w3a = useSolanaWallet();
 
   // Redirect to dashboard if already logged in (or auth is bypassed for demos)
   const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
@@ -25,6 +27,26 @@ export default function LoginPage() {
       router.push("/dashboard");
     }
   }, [user, loading, router, bypassAuth]);
+
+  const handleSolanaWeb3Auth = async () => {
+    setWalletError(null);
+    setAuthLoading("solana-w3a");
+    try {
+      if (!w3a.ready) throw new Error("Web3Auth still initialising — try again in a moment.");
+      await w3a.connect();
+      const addr = w3a.publicKey?.toBase58();
+      if (!addr) throw new Error("Web3Auth did not return a public key.");
+      const message = `Sign in to Breath Protocol\n\nWallet: ${addr}`;
+      const signature = await w3a.signMessage(message);
+      await signInWithSolana(addr, signature);
+      router.push("/dashboard");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[web3auth solana]", e);
+      setWalletError(m || "Web3Auth sign-in failed.");
+      setAuthLoading(null);
+    }
+  };
 
   const handleGoogle = async () => {
     setAuthLoading("google");
