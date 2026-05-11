@@ -125,18 +125,78 @@ export default function LoginPage() {
       const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
       if (!pk) throw new Error(`${name} did not return a public key.`);
       const pubkey = pk.toBase58();
+      console.info("[phantom] connected", { pubkey, isConnected: provider.isConnected });
 
-      // Sign the canonical message
       const msg = new TextEncoder().encode(
         `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
       );
-      const signRes = await provider.signMessage(msg);
-      const sigBytes: Uint8Array =
-        signRes instanceof Uint8Array
-          ? signRes
-          : (signRes as { signature: Uint8Array }).signature;
-      if (!sigBytes || !sigBytes.length) {
-        throw new Error(`${name} returned an empty signature.`);
+
+      // Try three signing strategies in order until one yields a signature.
+      // Phantom's signMessage occasionally throws "Me: Unexpected error" for
+      // reasons that are wholly internal — falling back to the RPC-style
+      // `request({ method: "signMessage" })` path is more reliable.
+      let sigBytes: Uint8Array | null = null;
+      const errors: unknown[] = [];
+
+      // Strategy A: provider.signMessage(uint8Array) — the documented form
+      try {
+        const r = await provider.signMessage(msg);
+        sigBytes =
+          r instanceof Uint8Array
+            ? r
+            : (r as { signature: Uint8Array }).signature;
+        if (!sigBytes?.length) sigBytes = null;
+      } catch (e) {
+        console.warn("[phantom] strategy A (signMessage) failed:", e, {
+          name: (e as Error)?.name,
+          message: (e as Error)?.message,
+          code: (e as { code?: unknown })?.code,
+          stack: (e as Error)?.stack,
+        });
+        errors.push(e);
+      }
+
+      // Strategy B: RPC-style request({ method: "signMessage", params: { message } })
+      if (!sigBytes) {
+        try {
+          const reqProvider = provider as unknown as {
+            request: (args: { method: string; params: Record<string, unknown> }) => Promise<{
+              signature: Uint8Array | number[] | string;
+            }>;
+          };
+          if (typeof reqProvider.request === "function") {
+            const r = await reqProvider.request({
+              method: "signMessage",
+              params: { message: msg, display: "utf8" },
+            });
+            const raw = r?.signature;
+            if (raw instanceof Uint8Array) sigBytes = raw;
+            else if (Array.isArray(raw)) sigBytes = new Uint8Array(raw);
+            else if (typeof raw === "string") {
+              // hex string — convert
+              const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
+              const bytes = new Uint8Array(hex.length / 2);
+              for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+              }
+              sigBytes = bytes;
+            }
+            if (!sigBytes?.length) sigBytes = null;
+          }
+        } catch (e) {
+          console.warn("[phantom] strategy B (request) failed:", e);
+          errors.push(e);
+        }
+      }
+
+      if (!sigBytes) {
+        const lastErr = errors[errors.length - 1];
+        const lastMsg =
+          lastErr instanceof Error ? lastErr.message : String(lastErr ?? "");
+        throw new Error(
+          `${name} signMessage failed: ${lastMsg || "no strategy succeeded"}. ` +
+            `Open the browser console (right-click → Inspect → Console) for the full error chain.`
+        );
       }
       const sigBase64 = btoa(String.fromCharCode(...sigBytes));
 
