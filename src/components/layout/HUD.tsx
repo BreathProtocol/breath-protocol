@@ -61,19 +61,19 @@ export default function HUD() {
       aria-hidden
       className="hidden sm:block fixed inset-0 z-10 pointer-events-none"
     >
-      {/* Top-left: sigil + brand */}
-      <div className="absolute top-7 left-8 flex items-start gap-2.5">
+            {/* Top-left: sigil + wordmark */}
+      <div className="absolute top-7 left-8 flex items-center gap-2.5">
         <span
-          className="mt-[6px] w-[6px] h-[6px] rounded-full animate-dot-pulse"
+          className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
           style={{
             background: "var(--teal)",
             boxShadow: "0 0 10px var(--teal)",
           }}
         />
-        <div className="bp-label leading-relaxed">
-          <div style={{ color: "var(--bone)" }}>BREATH PROTOCOL</div>
-          <div className="mt-1.5">{label}</div>
+        <div className="bp-label" style={{ color: "var(--bone)" }}>
+          Vertebra Atlas
         </div>
+      </div>
       </div>
 
       {/* Top-right: system status */}

@@ -7,14 +7,14 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 
-const chains = ["Ethereum", "Polygon", "Base", "Arbitrum", "Optimism"];
+const chains = ["Solana", "Bitcoin", "Sui", "Aptos", "TON"];
 
 export default function BridgePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [fromChain, setFromChain] = useState("Ethereum");
-  const [toChain, setToChain] = useState("Base");
+  const [fromChain, setFromChain] = useState("Solana");
+  const [toChain, setToChain] = useState("Bitcoin");
   const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
 
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function BridgePage() {
               </div>
               <div>
                 <div className="bp-label mb-1">FEE</div>
-                <div className="bp-readout" style={{ fontSize: "10px" }}>0.0002 ETH</div>
+                <div className="bp-readout" style={{ fontSize: "10px" }}>0.000005 SOL</div>
               </div>
               <div>
                 <div className="bp-label mb-1">ETA</div>

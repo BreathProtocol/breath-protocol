@@ -20,7 +20,7 @@ const quickstart = [
   {
     code: "03",
     label: "VERIFY",
-    snippet: "const proof = await bp.verify({\n  userId: '0x7a3b...f29d',\n  type: 'face',\n});",
+    snippet: "const proof = await bp.verify({\n  userId: 'Es9v…wWQRSm9',\n  type: 'face',\n});",
   },
 ];
 

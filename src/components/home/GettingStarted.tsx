@@ -14,7 +14,7 @@ const steps = [
     icon: Wallet,
     code: "02",
     title: "Add a Wallet",
-    subtitle: "EVM · Solana · Bitcoin",
+    subtitle: "Solana · Bitcoin · SVM",
   },
   {
     icon: Share2,

@@ -10,18 +10,18 @@ import BreathPrintSection from "@/components/explorer/BreathPrintSection";
 const stats = [
   { label: "TOTAL ATTESTATIONS", value: "12,847" },
   { label: "UNIQUE SPECIMENS", value: "3,412" },
-  { label: "AVG GAS", value: "0.00042 ETH" },
+  { label: "AVG FEE", value: "0.000005 SOL" },
 ];
 
 const attestations = [
-  { hash: "0xae42…f1c9", specimen: "0x7a3b…f29d", type: "FACE",   chain: "BASE",     block: "24,801,312", time: "2m ago" },
-  { hash: "0x91b3…e284", specimen: "0x4e0c…a17f", type: "BREATH", chain: "BASE",     block: "24,801,309", time: "4m ago" },
-  { hash: "0xd5fa…2b61", specimen: "0x7a3b…f29d", type: "GEO",    chain: "POLYGON",  block: "58,214,901", time: "6m ago" },
-  { hash: "0x32c8…7d40", specimen: "0x8f1e…c53b", type: "DOC",    chain: "ARBITRUM", block: "218,409,112", time: "11m ago" },
-  { hash: "0x71ef…94a2", specimen: "0x2d5a…88bc", type: "FACE",   chain: "BASE",     block: "24,801,287", time: "14m ago" },
-  { hash: "0x088a…c3f5", specimen: "0xb9e2…014d", type: "BREATH", chain: "BASE",     block: "24,801,282", time: "19m ago" },
-  { hash: "0x4dc1…71ea", specimen: "0x4e0c…a17f", type: "FACE",   chain: "POLYGON",  block: "58,214,840", time: "23m ago" },
-  { hash: "0xfc03…92d8", specimen: "0x8f1e…c53b", type: "GEO",    chain: "ARBITRUM", block: "218,409,080", time: "31m ago" },
+  { hash: "0xae42…f1c9", specimen: "0x7a3b…f29d", type: "FACE",   chain: "SOLANA",     block: "24,801,312", time: "2m ago" },
+  { hash: "0x91b3…e284", specimen: "0x4e0c…a17f", type: "BREATH", chain: "SOLANA",     block: "24,801,309", time: "4m ago" },
+  { hash: "0xd5fa…2b61", specimen: "0x7a3b…f29d", type: "GEO",    chain: "ECLIPSE",  block: "58,214,901", time: "6m ago" },
+  { hash: "0x32c8…7d40", specimen: "0x8f1e…c53b", type: "DOC",    chain: "SONIC", block: "218,409,112", time: "11m ago" },
+  { hash: "0x71ef…94a2", specimen: "0x2d5a…88bc", type: "FACE",   chain: "SOLANA",     block: "24,801,287", time: "14m ago" },
+  { hash: "0x088a…c3f5", specimen: "0xb9e2…014d", type: "BREATH", chain: "SOLANA",     block: "24,801,282", time: "19m ago" },
+  { hash: "0x4dc1…71ea", specimen: "0x4e0c…a17f", type: "FACE",   chain: "ECLIPSE",  block: "58,214,840", time: "23m ago" },
+  { hash: "0xfc03…92d8", specimen: "0x8f1e…c53b", type: "GEO",    chain: "SONIC", block: "218,409,080", time: "31m ago" },
 ];
 
 export default function ExplorerPage() {

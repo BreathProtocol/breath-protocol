@@ -33,8 +33,10 @@ export default function Sidebar({ activePage = "home" }: SidebarProps) {
     <aside
       className="w-[220px] min-w-[220px] flex flex-col z-40 animate-slide-in-left h-screen sticky top-0"
       style={{
-        background: "transparent",
-        borderRight: "1px solid var(--violet)",
+        background: "rgba(31, 26, 20, 0.028)",
+        borderRight: "1px solid var(--bone-10)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
       }}
     >
       {/* Brand */}

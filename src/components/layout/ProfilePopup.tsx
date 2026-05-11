@@ -31,7 +31,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
   const initials = displayName.slice(0, 2).toUpperCase();
   const avatarUrl =
     user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-  const emailOrAddress = user?.email || "0x7a3b...f29d";
+  const emailOrAddress = user?.email || "Es9v…wWQRSm9";
 
   // Close on click outside
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
                 className="w-[12px] h-[12px]"
                 style={{ color: "var(--dim)" }}
               />
-            </button>
+            </a>
 
             <button
               className="w-full flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[rgba(122,224,212,0.05)]"
