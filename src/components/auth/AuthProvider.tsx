@@ -73,39 +73,55 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const signInWithWallet = useCallback(async (address: string, signature: string, message: string) => {
-    // Use Supabase signInWithPassword with wallet address as email
-    // The wallet address becomes a unique identifier
+    void message;
     const walletEmail = `${address.toLowerCase()}@wallet.breathprotocol.io`;
-    const walletPassword = signature; // Use signature as password (unique per sign)
+    const walletPassword = signature.slice(0, 72); // bcrypt cap
 
-    // Try to sign up first (new user)
-    const { error: signUpError } = await supabase.auth.signUp({
+    // Try sign-in first — succeeds for any wallet with a stable signature
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: walletEmail,
       password: walletPassword,
-      options: {
-        data: {
-          wallet_address: address,
-          full_name: `${address.slice(0, 6)}...${address.slice(-4)}`,
-          auth_method: "wallet",
-        },
-      },
     });
-
-    // If user exists, sign in
-    if (signUpError?.message?.includes("already registered")) {
-      // Update password to current signature and sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: walletEmail,
-        password: walletPassword,
-      });
-
-      if (signInError) {
-        // If password changed, try signing up again (Supabase will handle)
-        throw new Error("Wallet authentication failed. Please try again.");
-      }
+    if (signInData?.session) {
+      setWalletAddress(address);
+      return;
     }
 
-    setWalletAddress(address);
+    const looksMissing =
+      !!signInError &&
+      /invalid login credentials|email not confirmed|user not found/i.test(signInError.message);
+
+    if (looksMissing) {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: walletEmail,
+        password: walletPassword,
+        options: {
+          data: {
+            wallet_address: address,
+            full_name: `${address.slice(0, 6)}...${address.slice(-4)}`,
+            auth_method: "wallet",
+          },
+        },
+      });
+      if (signUpError) {
+        console.error("[wallet auth] signUp failed:", signUpError);
+        throw new Error(`Sign-up failed: ${signUpError.message}`);
+      }
+      if (!signUpData.session) {
+        throw new Error(
+          "Wallet sign-up created an unconfirmed account. Disable email confirmation for wallet@... in Supabase Auth settings."
+        );
+      }
+      setWalletAddress(address);
+      return;
+    }
+
+    console.error("[wallet auth] signIn failed:", signInError);
+    throw new Error(
+      signInError?.message
+        ? `Wallet sign-in failed: ${signInError.message}. This wallet may have a stale Supabase record from a previous build — delete it from Auth dashboard to re-sign up.`
+        : "Wallet authentication failed."
+    );
   }, []);
 
   /**

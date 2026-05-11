@@ -44,8 +44,16 @@ export default function LoginPage() {
       const signature = await signMessageAsync({ message });
       await signInWithWallet(walletAddress, signature, message);
       router.push("/dashboard");
-    } catch {
-      setWalletError("Signature rejected or authentication failed.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[wallet sign-in]", e);
+      if (/user (rejected|denied)|rejected request|rejected the request/i.test(msg)) {
+        setWalletError("Signature request rejected in wallet.");
+      } else if (msg) {
+        setWalletError(msg);
+      } else {
+        setWalletError("Authentication failed. Open the browser console for details.");
+      }
       disconnect();
       setAuthLoading(null);
     }
