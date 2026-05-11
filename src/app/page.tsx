@@ -398,67 +398,7 @@ export default function LoginPage() {
                     <span className="bp-label" style={{ fontSize: "10px" }}>→</span>
                   </button>
                 ))}
-
-                <div className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.3em", color: "var(--dim)", textTransform: "uppercase", padding: "16px 4px 8px", borderTop: "1px solid var(--bone-10)", marginTop: "8px" }}>— EVM wallets</div>
-                {connectors.filter((c) => !/^(phantom|solflare)$/i.test(c.name)).map((connector, index) => (
-                  <button
-                    key={connector.uid}
-                    onClick={() => handleWalletConnect(index)}
-                    disabled={isConnecting}
-                    className="w-full flex items-center justify-between px-4 py-4 transition-all duration-200 group disabled:opacity-50"
-                    style={{
-                      border: "1px solid var(--bone-10)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--teal)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "var(--bone-10)";
-                    }}
-                  >
-                    <div className="text-left">
-                      <div
-                        className="bp-label"
-                        style={{ fontSize: "10px", marginBottom: "6px" }}
-                      >
-                        WALLET · {String(index + 1).padStart(2, "0")}
-                      </div>
-                      <div
-                        className="font-display"
-                        style={{
-                          fontWeight: 300,
-                          fontSize: "18px",
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          color: "var(--bone)",
-                        }}
-                      >
-                        {connector.name}
-                      </div>
-                    </div>
-                    <span
-                      className="bp-label"
-                      style={{ fontSize: "10px" }}
-                    >
-                      →
-                    </span>
-                  </button>
-                ))}
-
-                {connectors.length === 0 && (
-                  <div className="text-center py-10">
-                    <div className="bp-label mb-2">NO SIGNERS DETECTED</div>
-                    <p
-                      className="bp-editorial"
-                      style={{ fontSize: "15px", opacity: 0.6 }}
-                    >
-                      Install MetaMask or another Web3 wallet to continue.
-                    </p>
-                  </div>
-                )}
-              </div>
+                </div>
 
               {/* Footer */}
               <div
