@@ -25,7 +25,7 @@ import {
   type IProvider,
 } from "@web3auth/base";
 import { Web3Auth } from "@web3auth/modal";
-import { SolanaPrivateKeyProvider } from "@web3auth/solana-provider";
+import { SolanaPrivateKeyProvider, SolanaWallet } from "@web3auth/solana-provider";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID ?? "";
@@ -59,6 +59,8 @@ interface SolanaWalletContextValue {
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  /** Sign a UTF-8 message with the connected Solana key. Returns hex signature. */
+  signMessage: (message: string) => Promise<string>;
 }
 
 const Ctx = createContext<SolanaWalletContextValue>({
@@ -71,6 +73,7 @@ const Ctx = createContext<SolanaWalletContextValue>({
   error: null,
   connect: async () => {},
   disconnect: async () => {},
+  signMessage: async () => { throw new Error("Solana wallet not initialized"); },
 });
 
 export function useSolanaWallet() {
@@ -177,6 +180,14 @@ export default function Web3AuthSolanaProvider({
     }
   }, [web3auth]);
 
+  const signMessage = useCallback(async (message: string): Promise<string> => {
+    if (!provider) throw new Error("Wallet not connected");
+    const solanaWallet = new SolanaWallet(provider);
+    const bytes = new TextEncoder().encode(message);
+    const signed = await solanaWallet.signMessage(bytes);
+    return Buffer.from(signed).toString("hex");
+  }, [provider]);
+
   const value: SolanaWalletContextValue = {
     publicKey,
     address: publicKey?.toBase58() ?? null,
@@ -187,6 +198,7 @@ export default function Web3AuthSolanaProvider({
     error,
     connect,
     disconnect,
+    signMessage,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
