@@ -55,7 +55,7 @@ export default function CredentialsTopBar({
         className="sticky top-0 z-30 animate-fade-in"
         style={{
           borderBottom: "1px solid var(--bone-10)",
-          background: "rgba(7, 8, 12, 0.55)",
+          background: "rgba(255, 255, 255, 0.55)",
           backdropFilter: "blur(12px)",
         }}
       >

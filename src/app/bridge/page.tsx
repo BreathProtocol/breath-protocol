@@ -75,7 +75,7 @@ export default function BridgePage() {
       {sidebarOpen && (
         <div
           className="fixed inset-0 backdrop-blur-sm z-40 lg:hidden"
-          style={{ background: "rgba(7, 8, 12, 0.6)" }}
+          style={{ background: "rgba(255, 255, 255, 0.6)" }}
           onClick={() => setSidebarOpen(false)}
         />
       )}

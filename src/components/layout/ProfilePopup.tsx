@@ -81,7 +81,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-50 backdrop-blur-sm"
-        style={{ background: "rgba(7, 8, 12, 0.55)" }}
+        style={{ background: "rgba(255, 255, 255, 0.55)" }}
       />
 
       {/* Popup */}
@@ -90,7 +90,7 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
           ref={popupRef}
           className="w-full max-w-[360px] pointer-events-auto animate-fade-in-up"
           style={{
-            background: "rgba(7, 8, 12, 0.94)",
+            background: "rgba(255, 255, 255, 0.94)",
             border: "1px solid var(--bone-10)",
             backdropFilter: "blur(20px)",
             animationDuration: "0.25s",

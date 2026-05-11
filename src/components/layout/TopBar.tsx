@@ -50,7 +50,7 @@ export default function TopBar({ onMenuToggle, pageTitle = "Home" }: TopBarProps
         className="h-[64px] flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 animate-fade-in"
         style={{
           borderBottom: "1px solid var(--bone-10)",
-          background: "rgba(7, 8, 12, 0.55)",
+          background: "rgba(255, 255, 255, 0.55)",
           backdropFilter: "blur(12px)",
         }}
       >
