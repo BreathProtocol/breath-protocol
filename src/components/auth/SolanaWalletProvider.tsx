@@ -4,11 +4,14 @@ import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
+
+/**
+ * Modern Phantom / Solflare register themselves via the Wallet Standard
+ * protocol, so the legacy `PhantomWalletAdapter` / `SolflareWalletAdapter`
+ * are intentionally NOT included here. `useWallet().wallets` will still
+ * contain both wallets at runtime.
+ */
 
 const RPC_OR_NETWORK =
   process.env.NEXT_PUBLIC_SOLANA_RPC ||
@@ -21,20 +24,17 @@ export default function SolanaWalletProvider({
   children: React.ReactNode;
 }) {
   const endpoint = useMemo(() => {
-    // If env points to a full RPC URL, use it as-is; otherwise treat as cluster name.
     if (RPC_OR_NETWORK.startsWith("http")) return RPC_OR_NETWORK;
     try {
-      // clusterApiUrl accepts "mainnet-beta" | "testnet" | "devnet"
-      return clusterApiUrl(RPC_OR_NETWORK as "mainnet-beta" | "testnet" | "devnet");
+      return clusterApiUrl(
+        RPC_OR_NETWORK as "mainnet-beta" | "testnet" | "devnet"
+      );
     } catch {
       return clusterApiUrl("mainnet-beta");
     }
   }, []);
 
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
-  );
+  const wallets = useMemo(() => [], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
