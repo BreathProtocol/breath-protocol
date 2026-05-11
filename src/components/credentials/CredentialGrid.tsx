@@ -12,7 +12,7 @@ interface CredentialGridProps {
   category: string;
 }
 
-const categories = ["Finance", "Identity"] as const;
+const categories = ["Identity", "Finance", "Social", "Reputation"] as const;
 
 export default function CredentialGrid({
   activeTab,
