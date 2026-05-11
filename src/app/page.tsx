@@ -26,6 +26,64 @@ export default function LoginPage() {
     }
   }, [user, loading, router, bypassAuth]);
 
+  const handleDirectWallet = async () => {
+    setWalletError(null);
+    setAuthLoading("wallet");
+    try {
+      const w = window as unknown as Record<string, unknown>;
+      type SolProvider = {
+        publicKey?: { toBase58: () => string } | null;
+        isPhantom?: boolean;
+        connect: () => Promise<{ publicKey: { toBase58: () => string } }>;
+        signMessage: (m: Uint8Array, encoding?: string) => Promise<{ signature: Uint8Array } | Uint8Array>;
+      };
+      // Try Phantom first, then Solflare.
+      let provider: SolProvider | undefined;
+      let walletName = "wallet";
+      const phantom = (w["phantom"] as { solana?: SolProvider } | undefined)?.solana;
+      if (phantom && (phantom as SolProvider & { isPhantom?: boolean }).isPhantom) {
+        provider = phantom;
+        walletName = "Phantom";
+      } else if (w["solflare"]) {
+        provider = w["solflare"] as SolProvider;
+        walletName = "Solflare";
+      }
+      if (!provider) {
+        throw new Error("No Solana wallet detected. Install Phantom or Solflare and reload.");
+      }
+
+      // Connect (opens the wallet popup)
+      const connectRes = await provider.connect();
+      const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
+      if (!pk) throw new Error(`${walletName} did not return a public key.`);
+      const pubkey = pk.toBase58();
+
+      // Sign the canonical message
+      const msg = new TextEncoder().encode(`Sign in to Breath Protocol\n\nWallet: ${pubkey}`);
+      const signRes = await provider.signMessage(msg);
+      const sigBytes: Uint8Array =
+        signRes instanceof Uint8Array
+          ? signRes
+          : (signRes as { signature: Uint8Array }).signature;
+
+      // base58 encode signature (Solana convention)
+      const { default: bs58 } = await import("bs58");
+      const sigBase58 = bs58.encode(sigBytes);
+
+      await signInWithSolana(pubkey, sigBase58);
+      router.push("/dashboard");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[direct wallet sign-in]", e);
+      setWalletError(
+        /rejected|denied|user rejected/i.test(m)
+          ? "Signature request rejected in wallet."
+          : m || "Wallet sign-in failed."
+      );
+      setAuthLoading(null);
+    }
+  };
+
   const handleSolanaWeb3Auth = async () => {
     setWalletError(null);
     setAuthLoading("solana-w3a");
@@ -121,7 +179,7 @@ export default function LoginPage() {
         {/* Sign-in row */}
         <div className="mt-14 mx-auto w-full max-w-[480px]">
           {/* Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={handleGoogle}
               disabled={authLoading !== null}
@@ -155,6 +213,24 @@ export default function LoginPage() {
                 </>
               ) : (
                 <span>{w3a.ready ? "Solana · Web3Auth" : "Init…"}</span>
+              )}
+            </button>
+
+            <button
+              onClick={handleDirectWallet}
+              disabled={authLoading !== null}
+              className="bp-button flex items-center justify-center gap-3"
+            >
+              {authLoading === "wallet" ? (
+                <>
+                  <span
+                    className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
+                    style={{ background: "var(--teal)" }}
+                  />
+                  <span>Signing</span>
+                </>
+              ) : (
+                <span>Connect Wallet</span>
               )}
             </button>
           </div>
