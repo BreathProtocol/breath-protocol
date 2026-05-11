@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ThemeProvider from "@/components/layout/ThemeProvider";
 import AuthProvider from "@/components/auth/AuthProvider";
-import Web3Provider from "@/components/auth/Web3Provider";
 import SolanaWalletProvider from "@/components/auth/SolanaWalletProvider";
 import AmbientBackground from "@/components/layout/AmbientBackground";
 import HUD from "@/components/layout/HUD";
@@ -35,7 +34,6 @@ export default function RootLayout({
       </head>
       <body className="h-full overflow-hidden">
         <AmbientBackground />
-        <Web3Provider>
           <SolanaWalletProvider>
             <AuthProvider>
               <ThemeProvider>
@@ -43,7 +41,6 @@ export default function RootLayout({
               </ThemeProvider>
             </AuthProvider>
           </SolanaWalletProvider>
-        </Web3Provider>
         <HUD />
         <Cursor />
       </body>

@@ -3,28 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useConnect, useAccount, useSignMessage, useDisconnect } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletName } from "@solana/wallet-adapter-base";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInWithGoogle, signInWithWallet, signInWithSolana } = useAuth();
+  const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
-
-  // Wagmi hooks
-  const { connect, connectors, isPending: isConnecting } = useConnect();
-  const { address, isConnected } = useAccount();
-  const { signMessageAsync } = useSignMessage();
-  const { disconnect } = useDisconnect();
-
-  // On mount: clear any stale wagmi connection from previous EVM-flow attempts.
-  useEffect(() => {
-    try { disconnect(); } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Redirect to dashboard if already logged in (or auth is bypassed for demos)
   const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
@@ -37,30 +24,6 @@ export default function LoginPage() {
       router.push("/dashboard");
     }
   }, [user, loading, router, bypassAuth]);
-
-  const handleWalletSign = async (walletAddress: string) => {
-    try {
-      // Deterministic message — same wallet always produces the same signature,
-      // which becomes a stable password in Supabase. (Was previously broken
-      // by including Date.now() in the message.)
-      const message = `Sign in to Breath Protocol\n\nWallet: ${walletAddress}`;
-      const signature = await signMessageAsync({ message });
-      await signInWithWallet(walletAddress, signature, message);
-      router.push("/dashboard");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e ?? "");
-      console.error("[wallet sign-in]", e);
-      if (/user (rejected|denied)|rejected request|rejected the request/i.test(msg)) {
-        setWalletError("Signature request rejected in wallet.");
-      } else if (msg) {
-        setWalletError(msg);
-      } else {
-        setWalletError("Authentication failed. Open the browser console for details.");
-      }
-      disconnect();
-      setAuthLoading(null);
-    }
-  };
 
   const handleGoogle = async () => {
     setAuthLoading("google");
@@ -216,15 +179,6 @@ export default function LoginPage() {
           : m || "Solana wallet sign-in failed."
       );
       setAuthLoading(null);
-    }
-  };
-
-  const handleWalletConnect = (connectorIndex: number) => {
-    setWalletError(null);
-    setAuthLoading("wallet");
-    const connector = connectors[connectorIndex];
-    if (connector) {
-      connect({ connector });
     }
   };
 
