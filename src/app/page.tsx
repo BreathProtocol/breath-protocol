@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
 import { useConnect, useAccount, useSignMessage, useDisconnect } from "wagmi";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletName } from "@solana/wallet-adapter-base";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -86,6 +88,40 @@ export default function LoginPage() {
       await signInWithGoogle();
     } catch {
       setAuthLoading(null);
+    }
+  };
+
+  const sol = useWallet();
+
+  const handleNativeSolana = async (walletName: WalletName) => {
+    setWalletError(null);
+    setAuthLoading("wallet");
+    try {
+      sol.select(walletName);
+      // wait a tick for select to apply, then connect
+      await new Promise((r) => setTimeout(r, 50));
+      await sol.connect();
+      if (!sol.publicKey || !sol.signMessage) {
+        throw new Error(`${walletName} did not expose a sign-message method.`);
+      }
+      const pubkey = sol.publicKey.toBase58();
+      const msg = new TextEncoder().encode(
+        `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
+      );
+      const sigBytes = await sol.signMessage(msg);
+      const sigBase64 = btoa(String.fromCharCode(...sigBytes));
+      await signInWithSolana(pubkey, sigBase64);
+      router.push("/dashboard");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[native solana sign-in]", e);
+      setWalletError(
+        /rejected|denied/i.test(m)
+          ? "Signature request rejected in wallet."
+          : m || "Solana wallet sign-in failed."
+      );
+      setAuthLoading(null);
+      try { sol.disconnect(); } catch {}
     }
   };
 
@@ -330,6 +366,45 @@ export default function LoginPage() {
 
               {/* Wallet list */}
               <div className="px-6 pb-4 space-y-2">
+                {/* Native Solana wallets — Phantom + Solflare via wallet-adapter */}
+                {(["Phantom", "Solflare"] as const).map((name, i) => (
+                  <button
+                    key={`sol-${name}`}
+                    onClick={() => handleNativeSolana(name as WalletName)}
+                    disabled={authLoading !== null}
+                    className="w-full flex items-center justify-between px-4 py-4 transition-all duration-200 group disabled:opacity-50"
+                    style={{
+                      border: "1px solid var(--bone-10)",
+                      background: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--teal)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--bone-10)";
+                    }}
+                  >
+                    <div className="text-left">
+                      <div className="bp-label" style={{ fontSize: "10px", marginBottom: "6px" }}>
+                        SOLANA · {String(i + 1).padStart(2, "0")}
+                      </div>
+                      <div
+                        className="font-display"
+                        style={{
+                          fontWeight: 300,
+                          fontSize: "18px",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          color: "var(--bone)",
+                        }}
+                      >
+                        {name}
+                      </div>
+                    </div>
+                    <span className="bp-label" style={{ fontSize: "10px" }}>→</span>
+                  </button>
+                ))}
+
                 {connectors.map((connector, index) => (
                   <button
                     key={connector.uid}
