@@ -15,8 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PublicKey } from "@solana/web3.js";
 import { createRpc } from "@lightprotocol/stateless.js";
-import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
-import SolanaConnectButton from "@/components/auth/SolanaConnectButton";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY ?? "";
 const PROGRAM_ID =
@@ -52,7 +51,7 @@ export interface BreathPrintSectionProps {
 
 export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSectionProps = {}) {
   const params = useSearchParams();
-  const { publicKey: connectedKey } = useSolanaWallet();
+  const { publicKey: connectedKey } = useAuth();
 
   // Priority: explicit prop → connected Web3Auth wallet → ?wallet= URL param
   const walletStr =
@@ -113,7 +112,7 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <SolanaConnectButton />
+          <span className="bp-label" style={{ opacity: 0.6 }}>Sign in to view your attestations</span>
           <a
             href={solscanAccount(PROGRAM_ID)}
             target="_blank"

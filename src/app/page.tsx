@@ -81,8 +81,7 @@ export default function LoginPage() {
         connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
         disconnect?: () => Promise<void>;
         signMessage: (
-          m: Uint8Array,
-          encoding?: string
+          m: Uint8Array
         ) => Promise<{ signature: Uint8Array } | Uint8Array>;
       };
 
@@ -114,7 +113,7 @@ export default function LoginPage() {
       const msg = new TextEncoder().encode(
         `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
       );
-      const signRes = await provider.signMessage(msg, "utf8");
+      const signRes = await provider.signMessage(msg);
       const sigBytes: Uint8Array =
         signRes instanceof Uint8Array
           ? signRes
