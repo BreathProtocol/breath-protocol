@@ -97,18 +97,29 @@ export default function LoginPage() {
     setWalletError(null);
     setAuthLoading("wallet");
     try {
-      sol.select(walletName);
-      // wait a tick for select to apply, then connect
-      await new Promise((r) => setTimeout(r, 50));
-      await sol.connect();
-      if (!sol.publicKey || !sol.signMessage) {
-        throw new Error(`${walletName} did not expose a sign-message method.`);
+      // Bypass React hook snapshot — talk to the adapter directly.
+      const entry = sol.wallets.find((w) => w.adapter.name === walletName);
+      const adapter = entry?.adapter as
+        | { publicKey: import("@solana/web3.js").PublicKey | null; connect: () => Promise<void>; disconnect: () => Promise<void>; signMessage?: (m: Uint8Array) => Promise<Uint8Array> }
+        | undefined;
+      if (!adapter) {
+        throw new Error(`${walletName} extension not detected. Install it to continue.`);
       }
-      const pubkey = sol.publicKey.toBase58();
+      sol.select(walletName);
+      if (!adapter.publicKey) {
+        await adapter.connect();
+      }
+      if (!adapter.publicKey) {
+        throw new Error(`${walletName} did not connect.`);
+      }
+      if (typeof adapter.signMessage !== "function") {
+        throw new Error(`${walletName} does not support message signing.`);
+      }
+      const pubkey = adapter.publicKey.toBase58();
       const msg = new TextEncoder().encode(
         `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
       );
-      const sigBytes = await sol.signMessage(msg);
+      const sigBytes = await adapter.signMessage(msg);
       const sigBase64 = btoa(String.fromCharCode(...sigBytes));
       await signInWithSolana(pubkey, sigBase64);
       router.push("/dashboard");
@@ -121,7 +132,7 @@ export default function LoginPage() {
           : m || "Solana wallet sign-in failed."
       );
       setAuthLoading(null);
-      try { sol.disconnect(); } catch {}
+      try { await sol.disconnect(); } catch {}
     }
   };
 
@@ -195,7 +206,7 @@ export default function LoginPage() {
         {/* Sign-in row */}
         <div className="mt-14 mx-auto w-full max-w-[480px]">
           {/* Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={handleGoogle}
               disabled={authLoading !== null}
@@ -211,24 +222,6 @@ export default function LoginPage() {
                 </>
               ) : (
                 <span>Continue with Google</span>
-              )}
-            </button>
-
-            <button
-              onClick={handleSolanaSignIn}
-              disabled={authLoading !== null || !solana.ready}
-              className="bp-button flex items-center justify-center gap-3"
-            >
-              {authLoading === "solana" ? (
-                <>
-                  <span
-                    className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
-                    style={{ background: "var(--teal)" }}
-                  />
-                  <span>Signing</span>
-                </>
-              ) : (
-                <span>{solana.ready ? "Solana · Web3Auth" : "Init…"}</span>
               )}
             </button>
 
