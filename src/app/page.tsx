@@ -91,73 +91,70 @@ export default function LoginPage() {
 
   const sol = useWallet();
 
-  // The Solana sign-in flow is driven by a useEffect (below) because
-  // @solana/wallet-adapter-react only exposes `publicKey` + `signMessage`
-  // after a re-render — calling them synchronously inside an async click
-  // handler reads a stale snapshot.
-  const [pendingSolana, setPendingSolana] = useState<WalletName | null>(null);
-
-  const handleNativeSolana = (walletName: WalletName) => {
+  // Native Solana sign-in talking directly to the wallet's injected provider.
+  // Bypasses @solana/wallet-adapter-react — the adapter wraps every error
+  // as `WalletSignMessageError: Unexpected error`, which is unhelpful.
+  const handleNativeSolana = async (walletName: WalletName) => {
     setWalletError(null);
     setAuthLoading("solana");
     try {
-      sol.select(walletName);
+      const w = (typeof window !== "undefined" ? window : {}) as Record<string, unknown>;
+      let provider: {
+        publicKey?: { toBase58: () => string } | null;
+        isConnected?: boolean;
+        connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>;
+        disconnect?: () => Promise<void>;
+        signMessage: (m: Uint8Array, encoding?: string) => Promise<{ signature: Uint8Array } | Uint8Array>;
+      } | null = null;
+
+      if (walletName === ("Phantom" as WalletName)) {
+        const root = w["phantom"] as { solana?: typeof provider } | undefined;
+        provider = root?.solana ?? null;
+        if (!provider) {
+          throw new Error("Phantom is not installed. Install it from phantom.app and reload this page.");
+        }
+      } else if (walletName === ("Solflare" as WalletName)) {
+        provider = (w["solflare"] as typeof provider) ?? null;
+        if (!provider) {
+          throw new Error("Solflare is not installed. Install it from solflare.com and reload this page.");
+        }
+      } else {
+        throw new Error(`Unsupported wallet: ${String(walletName)}`);
+      }
+
+      // Trigger the wallet popup
+      const connectRes = await provider.connect();
+      const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
+      if (!pk) throw new Error(`${String(walletName)} did not return a public key.`);
+      const pubkey = pk.toBase58();
+
+      // Sign the canonical message
+      const msg = new TextEncoder().encode(
+        `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
+      );
+      const signRes = await provider.signMessage(msg, "utf8");
+      const sigBytes: Uint8Array =
+        signRes instanceof Uint8Array
+          ? signRes
+          : (signRes as { signature: Uint8Array }).signature;
+      if (!sigBytes || !sigBytes.length) {
+        throw new Error(`${String(walletName)} returned an empty signature.`);
+      }
+      const sigBase64 = btoa(String.fromCharCode(...sigBytes));
+
+      await signInWithSolana(pubkey, sigBase64);
+      router.push("/dashboard");
     } catch (e) {
-      console.error("[solana select]", e);
-    }
-    setPendingSolana(walletName);
-  };
-
-  // Effect: once the selected wallet is connected + publicKey + signMessage
-  // are populated by the hook, sign the message and authenticate.
-  useEffect(() => {
-    if (!pendingSolana) return;
-    if (!sol.wallet || sol.wallet.adapter.name !== pendingSolana) return;
-    if (sol.connecting) return;
-
-    let cancelled = false;
-    const fail = (e: unknown) => {
       const m = e instanceof Error ? e.message : String(e ?? "");
       console.error("[native solana sign-in]", e);
       setWalletError(
-        /rejected|denied/i.test(m)
+        /rejected|denied|user rejected/i.test(m)
           ? "Signature request rejected in wallet."
           : m || "Solana wallet sign-in failed."
       );
       setAuthLoading(null);
-      setPendingSolana(null);
-      try { sol.disconnect(); } catch {}
-    };
-
-    if (!sol.connected) {
-      sol.connect().catch((e) => {
-        if (!cancelled) fail(e);
-      });
-      return () => { cancelled = true; };
     }
-
-    if (sol.connected && sol.publicKey && typeof sol.signMessage === "function") {
-      (async () => {
-        try {
-          const pubkey = sol.publicKey!.toBase58();
-          const msg = new TextEncoder().encode(
-            `Sign in to Breath Protocol\n\nWallet: ${pubkey}`
-          );
-          const sigBytes = await sol.signMessage!(msg);
-          const sigBase64 = btoa(String.fromCharCode(...sigBytes));
-          await signInWithSolana(pubkey, sigBase64);
-          if (!cancelled) {
-            setPendingSolana(null);
-            router.push("/dashboard");
-          }
-        } catch (e) {
-          if (!cancelled) fail(e);
-        }
-      })();
-    }
-
-    return () => { cancelled = true; };
-  }, [pendingSolana, sol.wallet, sol.connected, sol.connecting, sol.publicKey, sol.signMessage, signInWithSolana, router]);
+  };
 
   const handleWalletConnect = (connectorIndex: number) => {
     setWalletError(null);
