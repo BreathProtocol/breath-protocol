@@ -15,7 +15,7 @@
     "@solana/web3.js": "^1.95.8",
     "@supabase/supabase-js": "^2.102.1",
     "@tanstack/react-query": "^5.96.2",
-    "@wallet-standard/app": "^1.1.1",
+    "@wallet-standard/app": "^1.1.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.3",
