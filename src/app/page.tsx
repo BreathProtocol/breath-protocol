@@ -99,12 +99,15 @@ export default function LoginPage() {
       // Hand off to Supabase's native Web3 sign-in (SIWS).
       // Supabase generates the canonical message, the wallet signs it,
       // Supabase verifies + issues a session — all one call.
-      type Web3WalletArg = Parameters<typeof supabase.auth.signInWithWeb3>[0]["wallet"];
-      const { error: web3Err } = await supabase.auth.signInWithWeb3({
+      // Note: Supabase's TS types don't currently expose `wallet` on Web3Credentials,
+      // but the runtime API accepts it (per supabase.com/docs/guides/auth/auth-web3).
+      // Cast to a permissive shape to satisfy the type checker.
+      const signInArgs = {
         chain: "solana",
         statement: "I accept the Breath Protocol Terms of Service.",
-        wallet: provider as unknown as Web3WalletArg,
-      });
+        wallet: provider,
+      } as unknown as Parameters<typeof supabase.auth.signInWithWeb3>[0];
+      const { error: web3Err } = await supabase.auth.signInWithWeb3(signInArgs);
       if (web3Err) {
         console.error("[supabase web3]", web3Err);
         throw new Error(web3Err.message);
