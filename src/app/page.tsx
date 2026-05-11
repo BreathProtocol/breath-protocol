@@ -6,8 +6,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useSolanaWallet } from "@/components/auth/Web3AuthSolanaProvider";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletName } from "@solana/wallet-adapter-base";
-
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
@@ -62,53 +60,6 @@ export default function LoginPage() {
   // Native Solana sign-in talking directly to the wallet's injected provider.
   // Bypasses @solana/wallet-adapter-react — the adapter wraps every error
   // as `WalletSignMessageError: Unexpected error`, which is unhelpful.
-  const handleNativeSolana = async (walletName: WalletName) => {
-    setWalletError(null);
-    setAuthLoading("solana");
-    try {
-      const { getWallets } = await import("@wallet-standard/app");
-      const name = String(walletName);
-
-      // Trigger Phantom/Solflare auto-registration on the page (they listen for
-      // the wallet-standard:app-ready event before announcing themselves).
-      window.dispatchEvent(new Event("wallet-standard:app-ready"));
-      // Small delay so just-registered wallets show up.
-      await new Promise((r) => setTimeout(r, 100));
-
-      const found = getWallets()
-        .get()
-        .find((w) => w.name.toLowerCase() === name.toLowerCase());
-      if (!found) {
-        const installed = getWallets().get().map((w) => w.name).join(", ") || "none";
-        throw new Error(
-          `${name} not found. Detected Standard Wallets: ${installed}. ` +
-            `Install ${name} and reload.`
-        );
-      }
-      console.info("[wallet-standard] picked", found.name);
-
-      const { error: web3Err } = await supabase.auth.signInWithWeb3({
-        chain: "solana",
-        statement: "I accept the Breath Protocol Terms of Service.",
-        wallet: found,
-      } as unknown as Parameters<typeof supabase.auth.signInWithWeb3>[0]);
-      if (web3Err) {
-        console.error("[supabase web3]", web3Err);
-        throw new Error(web3Err.message);
-      }
-      router.push("/dashboard");
-    } catch (e) {
-      const m = e instanceof Error ? e.message : String(e ?? "");
-      console.error("[native solana sign-in]", e);
-      setWalletError(
-        /rejected|denied|user rejected/i.test(m)
-          ? "Signature request rejected in wallet."
-          : m || "Solana wallet sign-in failed."
-      );
-      setAuthLoading(null);
-    }
-  };
-
   // Loading gate: pulsing teal dot + mono label
   if (loading) {
     return (
@@ -170,7 +121,7 @@ export default function LoginPage() {
         {/* Sign-in row */}
         <div className="mt-14 mx-auto w-full max-w-[480px]">
           {/* Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={handleGoogle}
               disabled={authLoading !== null}
@@ -204,27 +155,6 @@ export default function LoginPage() {
                 </>
               ) : (
                 <span>{w3a.ready ? "Solana · Web3Auth" : "Init…"}</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setShowWalletModal(true);
-                setWalletError(null);
-              }}
-              disabled={authLoading !== null}
-              className="bp-button flex items-center justify-center gap-3"
-            >
-              {(authLoading === "wallet" || authLoading === "solana") ? (
-                <>
-                  <span
-                    className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
-                    style={{ background: "var(--teal)" }}
-                  />
-                  <span>Signing</span>
-                </>
-              ) : (
-                <span>Connect Wallet</span>
               )}
             </button>
           </div>
@@ -270,74 +200,6 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-
-      {/* Wallet selection modal */}
-      {showWalletModal && (
-        <>
-          <div
-            className="fixed inset-0 z-50 backdrop-blur-sm"
-            style={{ background: "rgba(31, 26, 20, 0.32)" }}
-            onClick={() => {
-              setShowWalletModal(false);
-              setAuthLoading(null);
-            }}
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div
-              className="w-full max-w-[420px] pointer-events-auto animate-fade-in-up"
-              style={{
-                background: "rgba(255, 255, 255, 0.96)",
-                border: "1px solid var(--bone-10)",
-                backdropFilter: "blur(20px)",
-                animationDuration: "0.25s",
-              }}
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between p-6 pb-4">
-                <div>
-                  <div className="bp-eyebrow mb-2">WALLET · SELECT</div>
-                  <h3
-                    className="bp-display"
-                    style={{ fontSize: "28px", lineHeight: 1 }}
-                  >
-                    Connect
-                  </h3>
-                  <p
-                    className="bp-editorial mt-2"
-                    style={{ fontSize: "14px", color: "var(--bone)", opacity: 0.6 }}
-                  >
-                    Choose your preferred signer.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowWalletModal(false);
-                    setAuthLoading(null);
-                  }}
-                  className="bp-label transition-colors hover:text-[var(--teal)]"
-                  style={{ fontSize: "11px" }}
-                >
-                  CLOSE
-                </button>
-              </div>
-
-              {/* Error */}
-              {walletError && (
-                <div
-                  className="mx-6 mb-4 px-4 py-3"
-                  style={{
-                    border: "1px solid var(--bone-20)",
-                    background: "rgba(201, 123, 94, 0.05)",
-                  }}
-                >
-                  <p
-                    className="bp-label"
-                    style={{ color: "var(--teal)", letterSpacing: "0.15em" }}
-                  >
-                    {walletError}
-                  </p>
-                </div>
-              )}
 
               {/* Wallet list */}
               <div className="px-6 pb-4 space-y-2">
