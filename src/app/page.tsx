@@ -90,9 +90,26 @@ export default function LoginPage() {
 
       let provider: SolanaProvider | undefined;
       if (name === "Phantom") {
-        provider = (w["phantom"] as { solana?: SolanaProvider } | undefined)?.solana;
+        const phantomRoot = w["phantom"] as
+          | { solana?: SolanaProvider & { isPhantom?: boolean } }
+          | undefined;
+        provider = phantomRoot?.solana;
         if (!provider) {
           throw new Error("Phantom is not installed. Install it from phantom.app and reload this page.");
+        }
+        // Diagnostic: log who actually responded. Brave's built-in wallet
+        // sometimes hijacks window.phantom and returns generic errors.
+        const isReal = !!(provider as { isPhantom?: boolean }).isPhantom;
+        console.info("[phantom detect]", {
+          isPhantom: isReal,
+          hasSolflare: !!w["solflare"],
+          hasBraveWallet: !!(w as { braveSolana?: unknown }).braveSolana,
+        });
+        if (!isReal) {
+          throw new Error(
+            "Brave or another extension is intercepting Phantom. " +
+              "In Brave: Settings → Wallet → Default cryptocurrency wallet → 'Extensions (no fallback)', then reload."
+          );
         }
       } else if (name === "Solflare") {
         provider = w["solflare"] as SolanaProvider | undefined;
