@@ -131,33 +131,56 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
    */
   const signInWithSolana = useCallback(async (address: string, signature: string) => {
     const walletEmail = `sol_${address.toLowerCase()}@wallet.breathprotocol.io`;
-    // Truncate signature to a Supabase-acceptable length (max 72 chars).
     const walletPassword = signature.slice(0, 60);
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    // Try sign-in first (this account may already exist with a stable signature)
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: walletEmail,
       password: walletPassword,
-      options: {
-        data: {
-          wallet_address: address,
-          chain: "solana",
-          full_name: `${address.slice(0, 4)}…${address.slice(-4)}`,
-          auth_method: "solana_web3auth",
-        },
-      },
     });
-
-    if (signUpError?.message?.includes("already registered")) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: walletEmail,
-        password: walletPassword,
-      });
-      if (signInError) {
-        throw new Error("Solana wallet authentication failed.");
-      }
+    if (signInData?.session) {
+      setWalletAddress(address);
+      return;
     }
 
-    setWalletAddress(address);
+    // Not an existing user — sign up
+    const looksMissing =
+      !!signInError &&
+      /invalid login credentials|email not confirmed|user not found/i.test(signInError.message);
+
+    if (looksMissing) {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: walletEmail,
+        password: walletPassword,
+        options: {
+          data: {
+            wallet_address: address,
+            chain: "solana",
+            full_name: `${address.slice(0, 4)}…${address.slice(-4)}`,
+            auth_method: "solana_wallet",
+          },
+        },
+      });
+      if (signUpError) {
+        console.error("[signInWithSolana] signUp failed:", signUpError);
+        throw new Error(`Sign-up failed: ${signUpError.message}`);
+      }
+      if (!signUpData.session) {
+        throw new Error(
+          "Sign-up succeeded but no session was created. Check Supabase 'Confirm email' setting (should be off for synthetic emails)."
+        );
+      }
+      setWalletAddress(address);
+      return;
+    }
+
+    // Sign-in failed for a different reason
+    console.error("[signInWithSolana] signIn failed:", signInError);
+    throw new Error(
+      signInError?.message
+        ? `Solana wallet sign-in failed: ${signInError.message}`
+        : "Solana wallet authentication failed."
+    );
   }, []);
 
   const signOut = useCallback(async () => {
