@@ -359,6 +359,7 @@ export default function LoginPage() {
 
               {/* Wallet list */}
               <div className="px-6 pb-4 space-y-2">
+                <div className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.3em", color: "var(--dim)", textTransform: "uppercase", padding: "4px 4px 8px" }}>— Solana wallets</div>
                 {/* Native Solana wallets — Phantom + Solflare via wallet-adapter */}
                 {(["Phantom", "Solflare"] as const).map((name, i) => (
                   <button
@@ -398,7 +399,8 @@ export default function LoginPage() {
                   </button>
                 ))}
 
-                {connectors.map((connector, index) => (
+                <div className="bp-label" style={{ fontSize: "9px", letterSpacing: "0.3em", color: "var(--dim)", textTransform: "uppercase", padding: "16px 4px 8px", borderTop: "1px solid var(--bone-10)", marginTop: "8px" }}>— EVM wallets</div>
+                {connectors.filter((c) => !/^(phantom|solflare)$/i.test(c.name)).map((connector, index) => (
                   <button
                     key={connector.uid}
                     onClick={() => handleWalletConnect(index)}
