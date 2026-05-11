@@ -26,12 +26,17 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redirect to dashboard if already logged in
+  // Redirect to dashboard if already logged in (or auth is bypassed for demos)
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
   useEffect(() => {
+    if (bypassAuth) {
+      router.replace("/dashboard");
+      return;
+    }
     if (!loading && user) {
       router.push("/dashboard");
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, bypassAuth]);
 
   const handleWalletSign = async (walletAddress: string) => {
     try {
