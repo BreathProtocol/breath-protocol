@@ -89,8 +89,13 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
         if (!cancelled) setTxs(records);
       } catch (e) {
         if (!cancelled) {
-          const msg = e instanceof Error ? e.message : "RPC error";
-          setError(msg);
+          // Helius returns 401 when the API key is invalid/expired and we
+          // don't want to leak that to end users. Treat any RPC failure as
+          // "no data available" — the UI shows the empty-state instead.
+          const msg = e instanceof Error ? e.message : "";
+          console.warn("[breathprint] RPC unreachable:", msg);
+          setError(null);
+          setTxs([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
