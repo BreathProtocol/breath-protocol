@@ -236,12 +236,38 @@ export default function LoginPage() {
     try {
       if (!w3a.ready) throw new Error("Web3Auth still initialising — try again in a moment.");
       await w3a.connect();
-      const addr = w3a.publicKey?.toBase58();
-      if (!addr) throw new Error("Web3Auth did not return a public key.");
+
+      // After connect() resolves, the provider sometimes takes a tick to
+      // populate publicKey (especially when the popup-close detection was
+      // delayed by COOP). Poll briefly instead of failing immediately.
+      let addr = w3a.publicKey?.toBase58();
+      for (let i = 0; i < 20 && !addr; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        addr = w3a.publicKey?.toBase58();
+      }
+      if (!addr) throw new Error("Web3Auth connected but never returned a public key (popup-blocker or COOP).");
+
       const message = `Sign in to Breath Protocol\n\nWallet: ${addr}`;
-      const signature = await w3a.signMessage(message);
-      await signInWithSolana(addr, signature);
-      router.push("/dashboard");
+      const signature = await w3a.signMessage(message); // base58-encoded already
+      log(`web3auth signed for ${addr.slice(0, 8)}…`);
+
+      // Go through the same server-verified path as direct wallet sign-in
+      // (which we proved works end-to-end) instead of the synthetic-email
+      // signInWithPassword path that has been flaky.
+      const resp = await fetch("/api/auth/solana", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pubkey: addr, signature, message }),
+      });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server auth failed (${resp.status})`);
+      }
+      const { email, token } = (await resp.json()) as { email: string; token: string };
+      const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+      if (otpError) throw new Error(`OTP verify failed: ${otpError.message}`);
+
+      window.location.assign("/dashboard");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e ?? "");
       console.error("[web3auth solana]", e);
