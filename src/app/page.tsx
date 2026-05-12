@@ -11,7 +11,17 @@ export default function LoginPage() {
   const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const w3a = useSolanaWallet();
+
+  // Wallet Standard detects every Solana wallet installed in the browser
+  // (Phantom, Solflare, Backpack, Glow, Brave, etc.) through a different
+  // injection path than `window.phantom.solana`. Phantom registers itself
+  // via Wallet Standard *in addition to* the legacy path, so this is a
+  // completely separate code path inside the extension — when the legacy
+  // signMessage throws "Unexpected error", the Wallet Standard feature
+  // (`solana:signMessage`) often still works.
+  const sol = useWallet();
 
   // Step trace in the console only — on-page panel was distracting.
   const log = (msg: string) => {
@@ -285,11 +295,58 @@ export default function LoginPage() {
     }
   };
 
-  const sol = useWallet();
+  // Wallet Standard path: pick a wallet, connect, sign via the feature
+  // protocol (different code path than legacy window.phantom).
+  const signInWithWalletStandard = async (walletName: string) => {
+    setWalletError(null);
+    setAuthLoading("wallet");
+    try {
+      const adapter = sol.wallets.find((w) => w.adapter.name === walletName)?.adapter;
+      if (!adapter) throw new Error(`${walletName} adapter not found`);
+      log(`[ws] select ${walletName}`);
+      sol.select(adapter.name);
+      log("[ws] connecting…");
+      await adapter.connect();
+      const pk = adapter.publicKey;
+      if (!pk) throw new Error(`${walletName} returned no public key`);
+      const pubkey = pk.toBase58();
+      log(`[ws] connected ${pubkey.slice(0, 8)}…`);
 
-  // Native Solana sign-in talking directly to the wallet's injected provider.
-  // Bypasses @solana/wallet-adapter-react — the adapter wraps every error
-  // as `WalletSignMessageError: Unexpected error`, which is unhelpful.
+      const signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
+      const msg = new TextEncoder().encode(signedMessageText);
+      log("[ws] signMessage via wallet-standard feature");
+      // @solana/wallet-adapter-react routes through the `solana:signMessage`
+      // Wallet Standard feature, NOT window.phantom.solana.signMessage.
+      const sigBytes = await (adapter as unknown as {
+        signMessage: (m: Uint8Array) => Promise<Uint8Array>;
+      }).signMessage(msg);
+      log(`[ws] got ${sigBytes.length} sig bytes`);
+
+      const { default: bs58 } = await import("bs58");
+      const sigBase58 = bs58.encode(sigBytes);
+
+      const resp = await fetch("/api/auth/solana", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pubkey, signature: sigBase58, message: signedMessageText }),
+      });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server auth failed (${resp.status})`);
+      }
+      const { email, token } = (await resp.json()) as { email: string; token: string };
+      const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+      if (otpError) throw new Error(`OTP verify failed: ${otpError.message}`);
+
+      window.location.assign("/dashboard");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[wallet-standard]", e);
+      setWalletError(m || "Wallet sign-in failed.");
+      setAuthLoading(null);
+      setWalletPickerOpen(false);
+    }
+  };
   // Loading gate: pulsing teal dot + mono label
   if (loading) {
     return (
@@ -389,7 +446,10 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={handleDirectWallet}
+              onClick={() => {
+                setWalletError(null);
+                setWalletPickerOpen(true);
+              }}
               disabled={authLoading !== null}
               className="bp-button flex items-center justify-center gap-3"
             >
@@ -406,6 +466,74 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+
+          {/* Wallet picker — lists every Solana wallet the browser detects
+              via the Wallet Standard protocol. */}
+          {walletPickerOpen && (
+            <div
+              className="mt-4 p-4"
+              style={{
+                border: "1px solid rgba(31, 26, 20, 0.16)",
+                background: "rgba(255,255,255,0.6)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="bp-label" style={{ fontSize: "10px" }}>
+                  SELECT WALLET
+                </span>
+                <button
+                  onClick={() => setWalletPickerOpen(false)}
+                  className="bp-label hover:opacity-100"
+                  style={{ fontSize: "10px", opacity: 0.6 }}
+                >
+                  CLOSE
+                </button>
+              </div>
+
+              {sol.wallets.length === 0 && (
+                <div
+                  className="bp-editorial text-center py-6"
+                  style={{ fontSize: "13px", opacity: 0.7 }}
+                >
+                  No Solana wallet detected.
+                  <br />
+                  Install Phantom, Solflare, Backpack, or Glow and reload.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {sol.wallets.map((w) => (
+                  <button
+                    key={w.adapter.name}
+                    onClick={() => signInWithWalletStandard(w.adapter.name)}
+                    disabled={authLoading !== null}
+                    className="w-full flex items-center justify-between px-4 py-3 transition-colors disabled:opacity-50"
+                    style={{
+                      border: "1px solid rgba(31, 26, 20, 0.16)",
+                      background: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--teal)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(31, 26, 20, 0.16)";
+                    }}
+                  >
+                    <span style={{ fontSize: "14px", color: "var(--bone)" }}>
+                      {w.adapter.name}
+                    </span>
+                    <span
+                      className="bp-label"
+                      style={{ fontSize: "9px", opacity: 0.55 }}
+                    >
+                      {w.readyState}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Error (single line) — full step log stays in the browser console only */}
           {walletError && (
