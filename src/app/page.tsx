@@ -66,8 +66,10 @@ export default function LoginPage() {
 
       let pubkey: string;
       let sigBytes: Uint8Array;
+      let signedMessageText: string;
 
       if (typeof provSI.signIn === "function") {
+        // SIWS — Phantom returns the exact message it signed in `signedMessage`.
         const r = await provSI.signIn({
           domain: window.location.host,
           statement: "Sign in to Breath Protocol",
@@ -76,13 +78,15 @@ export default function LoginPage() {
         sigBytes = r.signature;
         const acct = r.account.publicKey;
         pubkey = typeof acct === "string" ? acct : acct.toBase58!();
+        signedMessageText = new TextDecoder().decode(r.signedMessage);
       } else {
         // Older wallets without signIn — fall back to connect + signMessage
         const connectRes = await provider.connect();
         const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
         if (!pk) throw new Error(`${walletName} did not return a public key.`);
         pubkey = pk.toBase58();
-        const msg = new TextEncoder().encode(`Sign in to Breath Protocol\n\nWallet: ${pubkey}`);
+        signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
+        const msg = new TextEncoder().encode(signedMessageText);
         const signRes = await provider.signMessage(msg);
         sigBytes =
           signRes instanceof Uint8Array
@@ -93,7 +97,32 @@ export default function LoginPage() {
       const { default: bs58 } = await import("bs58");
       const sigBase58 = bs58.encode(sigBytes);
 
-      await signInWithSolana(pubkey, sigBase58);
+      // Server verifies the ed25519 signature, finds-or-creates the user via
+      // the Supabase admin SDK, and returns a one-time OTP we redeem for a
+      // real session. Bypasses the synthetic-email/signInWithPassword path
+      // that was failing intermittently, and Supabase's signInWithWeb3 URI
+      // validation.
+      const resp = await fetch("/api/auth/solana", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pubkey,
+          signature: sigBase58,
+          message: signedMessageText,
+        }),
+      });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server auth failed (${resp.status})`);
+      }
+      const { email, token } = (await resp.json()) as { email: string; token: string };
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+      if (otpError) throw new Error(`OTP verify failed: ${otpError.message}`);
+
       router.push("/dashboard");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e ?? "");
