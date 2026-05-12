@@ -113,7 +113,7 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
             On-chain identity
           </h2>
           <p className="bp-editorial mt-2" style={{ fontSize: "13px", opacity: 0.6 }}>
-            ZK-compressed biometric commitments on Solana {NETWORK}. ~0.000015 SOL per attestation.
+            ZK-compressed biometric commitments on Solana {NETWORK}. ~0.0003 SOL per attestation.
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
