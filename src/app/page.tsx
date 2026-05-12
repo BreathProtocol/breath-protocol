@@ -171,11 +171,18 @@ export default function LoginPage() {
         }
       }
 
-      // Strategy 4: SIWS signIn() — newer code path
+      // Strategy 4: SIWS signIn() — Phantom validates `{ domain, uri }`
+      // and rejects with "Missing or invalid parameters" otherwise. This
+      // is a completely different internal handler than signMessage — it
+      // doesn't go through the broken `#n` method.
       if (!sigBytes && typeof provFull.signIn === "function") {
         try {
-          log("[strategy 4] provider.signIn()");
-          const r = await provFull.signIn();
+          log("[strategy 4] provider.signIn({domain, uri})");
+          const r = await provFull.signIn({
+            domain: window.location.host,
+            statement: "Sign in to Breath Protocol",
+            uri: window.location.origin,
+          });
           sigBytes = r.signature;
           signedMessageText = new TextDecoder().decode(r.signedMessage);
           const acct = r.account.publicKey;
