@@ -11,7 +11,16 @@ export default function LoginPage() {
   const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const w3a = useSolanaWallet();
+
+  // Mirror console output to an on-screen panel — the user can't always
+  // open the devtools console mid-demo, and walletError alone hides the
+  // step where things actually break.
+  const log = (msg: string) => {
+    console.log("[breath-auth]", msg);
+    setDebugLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
+  };
 
   // Redirect to dashboard if already logged in (or auth is bypassed for demos)
   const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
@@ -27,8 +36,10 @@ export default function LoginPage() {
 
   const handleDirectWallet = async () => {
     setWalletError(null);
+    setDebugLog([]);
     setAuthLoading("wallet");
     try {
+      log("start: detecting injected Solana wallet");
       const w = window as unknown as Record<string, unknown>;
       type SolProvider = {
         publicKey?: { toBase58: () => string } | null;
@@ -47,6 +58,7 @@ export default function LoginPage() {
         provider = w["solflare"] as SolProvider;
         walletName = "Solflare";
       }
+      log(`provider: ${provider ? walletName : "NONE"}`);
       if (!provider) {
         throw new Error("No Solana wallet detected. Install Phantom or Solflare and reload.");
       }
@@ -70,17 +82,21 @@ export default function LoginPage() {
 
       if (typeof provSI.signIn === "function") {
         // SIWS — Phantom returns the exact message it signed in `signedMessage`.
+        log("calling provider.signIn() (SIWS)");
         const r = await provSI.signIn({
           domain: window.location.host,
           statement: "Sign in to Breath Protocol",
           uri: window.location.origin,
         });
+        log("signIn returned");
         sigBytes = r.signature;
         const acct = r.account.publicKey;
         pubkey = typeof acct === "string" ? acct : acct.toBase58!();
         signedMessageText = new TextDecoder().decode(r.signedMessage);
+        log(`pubkey: ${pubkey.slice(0, 8)}…  msg bytes: ${r.signedMessage.length}`);
       } else {
         // Older wallets without signIn — fall back to connect + signMessage
+        log("provider has no signIn(); connect+signMessage fallback");
         const connectRes = await provider.connect();
         const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
         if (!pk) throw new Error(`${walletName} did not return a public key.`);
@@ -92,16 +108,17 @@ export default function LoginPage() {
           signRes instanceof Uint8Array
             ? signRes
             : (signRes as { signature: Uint8Array }).signature;
+        log(`signMessage returned ${sigBytes.length} bytes`);
       }
 
       const { default: bs58 } = await import("bs58");
       const sigBase58 = bs58.encode(sigBytes);
+      log(`sig base58: ${sigBase58.slice(0, 12)}…`);
 
       // Server verifies the ed25519 signature, finds-or-creates the user via
       // the Supabase admin SDK, and returns a one-time OTP we redeem for a
-      // real session. Bypasses the synthetic-email/signInWithPassword path
-      // that was failing intermittently, and Supabase's signInWithWeb3 URI
-      // validation.
+      // real session.
+      log("POST /api/auth/solana");
       const resp = await fetch("/api/auth/solana", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,19 +128,23 @@ export default function LoginPage() {
           message: signedMessageText,
         }),
       });
+      log(`server status: ${resp.status}`);
       if (!resp.ok) {
         const errJson = await resp.json().catch(() => ({}));
         throw new Error(errJson.error || `Server auth failed (${resp.status})`);
       }
       const { email, token } = (await resp.json()) as { email: string; token: string };
-      const { error: otpError } = await supabase.auth.verifyOtp({
+      log(`got OTP for ${email}, verifying…`);
+      const { error: otpError, data: otpData } = await supabase.auth.verifyOtp({
         email,
         token,
         type: "email",
       });
       if (otpError) throw new Error(`OTP verify failed: ${otpError.message}`);
+      log(`session attached: ${otpData?.session?.user?.id?.slice(0, 8)}… → /dashboard`);
 
-      router.push("/dashboard");
+      // Hard-redirect so AuthProvider re-hydrates the session from storage.
+      window.location.assign("/dashboard");
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e ?? "");
       console.error("[direct wallet sign-in]", e);
@@ -286,6 +307,32 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+
+          {/* Error + step-by-step debug panel */}
+          {(walletError || debugLog.length > 0) && (
+            <div
+              className="mt-5 px-4 py-3 text-left"
+              style={{
+                border: "1px solid rgba(31, 26, 20, 0.16)",
+                background: "rgba(201, 123, 94, 0.06)",
+                fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                fontSize: "11px",
+                lineHeight: 1.5,
+                maxHeight: "220px",
+                overflowY: "auto",
+                color: "var(--bone)",
+              }}
+            >
+              {walletError && (
+                <div style={{ color: "var(--teal)", marginBottom: "6px", fontWeight: 600 }}>
+                  ✕ {walletError}
+                </div>
+              )}
+              {debugLog.map((line, i) => (
+                <div key={i} style={{ opacity: 0.75 }}>{line}</div>
+              ))}
+            </div>
+          )}
 
           {/* OR divider */}
           <div className="flex items-center gap-4 my-7">
