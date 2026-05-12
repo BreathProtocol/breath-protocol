@@ -11,15 +11,11 @@ export default function LoginPage() {
   const { user, loading, signInWithGoogle, signInWithSolana } = useAuth();
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
   const w3a = useSolanaWallet();
 
-  // Mirror console output to an on-screen panel — the user can't always
-  // open the devtools console mid-demo, and walletError alone hides the
-  // step where things actually break.
+  // Step trace in the console only — on-page panel was distracting.
   const log = (msg: string) => {
     console.log("[breath-auth]", msg);
-    setDebugLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
   };
 
   // Redirect to dashboard if already logged in (or auth is bypassed for demos)
@@ -36,7 +32,6 @@ export default function LoginPage() {
 
   const handleDirectWallet = async () => {
     setWalletError(null);
-    setDebugLog([]);
     setAuthLoading("wallet");
     try {
       log("start: detecting injected Solana wallet");
@@ -63,52 +58,130 @@ export default function LoginPage() {
         throw new Error("No Solana wallet detected. Install Phantom or Solflare and reload.");
       }
 
-      // Use the wallet's signIn (SIWS) instead of signMessage. Phantom's
-      // signMessage has been throwing "Me: Unexpected error" for some users
-      // — signIn is a separate code path and is the modern Solana standard.
+      // Phantom on this user's machine throws `Me: Unexpected error` from
+      // its internal `#n` method when we call signIn() or signMessage()
+      // directly. Different Phantom API entry points sometimes route to
+      // different internal handlers, so we try them in order and surface
+      // the first one that succeeds.
       type SignInResult = {
         signature: Uint8Array;
         signedMessage: Uint8Array;
         account: { publicKey: { toBase58?: () => string } | string };
       };
-      type SolProviderWithSignIn = SolProvider & {
-        signIn?: (input: { domain?: string; statement?: string; uri?: string }) => Promise<SignInResult>;
+      type SolProviderFull = SolProvider & {
+        signIn?: (input?: { domain?: string; statement?: string; uri?: string }) => Promise<SignInResult>;
+        request?: (args: { method: string; params?: Record<string, unknown> }) => Promise<unknown>;
+        disconnect?: () => Promise<void>;
       };
-      const provSI = provider as SolProviderWithSignIn;
+      const provFull = provider as SolProviderFull;
 
-      let pubkey: string;
-      let sigBytes: Uint8Array;
-      let signedMessageText: string;
+      // Wipe any stale connection state — Phantom occasionally returns
+      // stuck "Unexpected error" if a previous session is half-cached.
+      try {
+        if (typeof provFull.disconnect === "function") {
+          await provFull.disconnect();
+          log("provider.disconnect() ok");
+        }
+      } catch (e) {
+        log(`disconnect threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+      }
 
-      if (typeof provSI.signIn === "function") {
-        // SIWS — Phantom returns the exact message it signed in `signedMessage`.
-        log("calling provider.signIn() (SIWS)");
-        const r = await provSI.signIn({
-          domain: window.location.host,
-          statement: "Sign in to Breath Protocol",
-          uri: window.location.origin,
-        });
-        log("signIn returned");
-        sigBytes = r.signature;
-        const acct = r.account.publicKey;
-        pubkey = typeof acct === "string" ? acct : acct.toBase58!();
-        signedMessageText = new TextDecoder().decode(r.signedMessage);
-        log(`pubkey: ${pubkey.slice(0, 8)}…  msg bytes: ${r.signedMessage.length}`);
-      } else {
-        // Older wallets without signIn — fall back to connect + signMessage
-        log("provider has no signIn(); connect+signMessage fallback");
-        const connectRes = await provider.connect();
-        const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
-        if (!pk) throw new Error(`${walletName} did not return a public key.`);
-        pubkey = pk.toBase58();
-        signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
-        const msg = new TextEncoder().encode(signedMessageText);
-        const signRes = await provider.signMessage(msg);
-        sigBytes =
-          signRes instanceof Uint8Array
-            ? signRes
-            : (signRes as { signature: Uint8Array }).signature;
-        log(`signMessage returned ${sigBytes.length} bytes`);
+      let pubkey: string = "";
+      let sigBytes: Uint8Array | null = null;
+      let signedMessageText: string = "";
+      const errors: string[] = [];
+
+      // Always connect first so we have the public key.
+      log("calling provider.connect()");
+      const connectRes = await provFull.connect();
+      const pkObj = (connectRes?.publicKey ?? provFull.publicKey) as { toBase58: () => string } | null | undefined;
+      if (!pkObj) throw new Error(`${walletName} did not return a public key.`);
+      pubkey = pkObj.toBase58();
+      log(`connected. pubkey: ${pubkey.slice(0, 8)}…`);
+
+      // Strategy 1: legacy signMessage(Uint8Array)
+      if (!sigBytes) {
+        try {
+          log("[strategy 1] provider.signMessage(bytes)");
+          signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
+          const msg = new TextEncoder().encode(signedMessageText);
+          const signRes = await provFull.signMessage(msg);
+          sigBytes =
+            signRes instanceof Uint8Array
+              ? signRes
+              : (signRes as { signature: Uint8Array }).signature;
+          log(`[strategy 1] ok, ${sigBytes.length} bytes`);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          errors.push(`signMessage: ${m}`);
+          log(`[strategy 1] failed: ${m}`);
+        }
+      }
+
+      // Strategy 2: signMessage with explicit 'utf8' encoding hint
+      if (!sigBytes) {
+        try {
+          log("[strategy 2] provider.signMessage(bytes, 'utf8')");
+          signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
+          const msg = new TextEncoder().encode(signedMessageText);
+          const signRes = await provFull.signMessage(msg, "utf8");
+          sigBytes =
+            signRes instanceof Uint8Array
+              ? signRes
+              : (signRes as { signature: Uint8Array }).signature;
+          log(`[strategy 2] ok, ${sigBytes.length} bytes`);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          errors.push(`signMessage(utf8): ${m}`);
+          log(`[strategy 2] failed: ${m}`);
+        }
+      }
+
+      // Strategy 3: RPC-style request({ method: 'signMessage', ... })
+      if (!sigBytes && typeof provFull.request === "function") {
+        try {
+          log("[strategy 3] provider.request({method:'signMessage'})");
+          signedMessageText = `Sign in to Breath Protocol\n\nWallet: ${pubkey}`;
+          const msg = new TextEncoder().encode(signedMessageText);
+          const r = (await provFull.request({
+            method: "signMessage",
+            params: { message: msg, display: "utf8" },
+          })) as { signature: Uint8Array } | Uint8Array;
+          sigBytes = r instanceof Uint8Array ? r : (r.signature as Uint8Array);
+          // The request() shape sometimes returns a base58 string — normalise.
+          if (typeof (sigBytes as unknown) === "string") {
+            const { default: bs58dec } = await import("bs58");
+            sigBytes = bs58dec.decode(sigBytes as unknown as string);
+          }
+          log(`[strategy 3] ok, ${sigBytes.length} bytes`);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          errors.push(`request(signMessage): ${m}`);
+          log(`[strategy 3] failed: ${m}`);
+        }
+      }
+
+      // Strategy 4: SIWS signIn() — newer code path
+      if (!sigBytes && typeof provFull.signIn === "function") {
+        try {
+          log("[strategy 4] provider.signIn()");
+          const r = await provFull.signIn();
+          sigBytes = r.signature;
+          signedMessageText = new TextDecoder().decode(r.signedMessage);
+          const acct = r.account.publicKey;
+          pubkey = typeof acct === "string" ? acct : acct.toBase58!();
+          log(`[strategy 4] ok, ${sigBytes.length} bytes`);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          errors.push(`signIn: ${m}`);
+          log(`[strategy 4] failed: ${m}`);
+        }
+      }
+
+      if (!sigBytes) {
+        throw new Error(
+          `All Phantom signing methods failed: ${errors.join(" | ")}. Your Phantom extension may need to be removed and re-installed.`
+        );
       }
 
       const { default: bs58 } = await import("bs58");
@@ -308,29 +381,18 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Error + step-by-step debug panel */}
-          {(walletError || debugLog.length > 0) && (
+          {/* Error (single line) — full step log stays in the browser console only */}
+          {walletError && (
             <div
-              className="mt-5 px-4 py-3 text-left"
+              className="mt-5 px-4 py-3 text-center bp-label"
               style={{
                 border: "1px solid rgba(31, 26, 20, 0.16)",
                 background: "rgba(201, 123, 94, 0.06)",
-                fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                color: "var(--teal)",
                 fontSize: "11px",
-                lineHeight: 1.5,
-                maxHeight: "220px",
-                overflowY: "auto",
-                color: "var(--bone)",
               }}
             >
-              {walletError && (
-                <div style={{ color: "var(--teal)", marginBottom: "6px", fontWeight: 600 }}>
-                  ✕ {walletError}
-                </div>
-              )}
-              {debugLog.map((line, i) => (
-                <div key={i} style={{ opacity: 0.75 }}>{line}</div>
-              ))}
+              {walletError}
             </div>
           )}
 
