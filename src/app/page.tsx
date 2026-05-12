@@ -474,74 +474,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Wallet picker — lists every Solana wallet the browser detects
-              via the Wallet Standard protocol. */}
-          {walletPickerOpen && (
-            <div
-              className="mt-4 p-4"
-              style={{
-                border: "1px solid rgba(31, 26, 20, 0.16)",
-                background: "rgba(255,255,255,0.6)",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="bp-label" style={{ fontSize: "10px" }}>
-                  SELECT WALLET
-                </span>
-                <button
-                  onClick={() => setWalletPickerOpen(false)}
-                  className="bp-label hover:opacity-100"
-                  style={{ fontSize: "10px", opacity: 0.6 }}
-                >
-                  CLOSE
-                </button>
-              </div>
-
-              {sol.wallets.length === 0 && (
-                <div
-                  className="bp-editorial text-center py-6"
-                  style={{ fontSize: "13px", opacity: 0.7 }}
-                >
-                  No Solana wallet detected.
-                  <br />
-                  Install Phantom, Solflare, Backpack, or Glow and reload.
-                </div>
-              )}
-
-              <div className="space-y-2">
-                {sol.wallets.map((w) => (
-                  <button
-                    key={w.adapter.name}
-                    onClick={() => signInWithWalletStandard(w.adapter.name)}
-                    disabled={authLoading !== null}
-                    className="w-full flex items-center justify-between px-4 py-3 transition-colors disabled:opacity-50"
-                    style={{
-                      border: "1px solid rgba(31, 26, 20, 0.16)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--teal)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(31, 26, 20, 0.16)";
-                    }}
-                  >
-                    <span style={{ fontSize: "14px", color: "var(--bone)" }}>
-                      {w.adapter.name}
-                    </span>
-                    <span
-                      className="bp-label"
-                      style={{ fontSize: "9px", opacity: 0.55 }}
-                    >
-                      {w.readyState}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Error (single line) — full step log stays in the browser console only */}
           {walletError && (
             <div
@@ -598,6 +530,145 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* Wallet picker modal — lists every Solana wallet the browser
+          detects via the Wallet Standard protocol. Fixed overlay so the
+          rest of the page stays untouched. */}
+      {walletPickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            style={{ background: "rgba(255, 255, 255, 0.72)", backdropFilter: "blur(6px)" }}
+            onClick={() => {
+              if (authLoading !== "wallet") setWalletPickerOpen(false);
+            }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div
+              className="w-full max-w-[420px] pointer-events-auto animate-fade-in-up"
+              style={{
+                background: "rgba(255, 255, 255, 0.96)",
+                border: "1px solid rgba(31, 26, 20, 0.12)",
+                animationDuration: "0.2s",
+                maxHeight: "calc(100vh - 32px)",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Header */}
+              <div
+                className="flex items-start justify-between px-6 pt-6 pb-4"
+                style={{ flexShrink: 0 }}
+              >
+                <div>
+                  <div className="bp-eyebrow mb-2">WALLET · SELECT</div>
+                  <h3
+                    className="bp-display"
+                    style={{ fontSize: "28px", lineHeight: 1 }}
+                  >
+                    Connect
+                  </h3>
+                  <p
+                    className="bp-editorial mt-2"
+                    style={{ fontSize: "13px", color: "var(--bone)", opacity: 0.6 }}
+                  >
+                    Pick a Solana wallet.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setWalletPickerOpen(false)}
+                  disabled={authLoading === "wallet"}
+                  className="bp-label transition-colors hover:text-[var(--teal)] disabled:opacity-40"
+                  style={{ fontSize: "11px" }}
+                >
+                  CLOSE
+                </button>
+              </div>
+
+              {/* List */}
+              <div
+                className="px-6 pb-2 space-y-2"
+                style={{ overflowY: "auto", flex: 1 }}
+              >
+                {sol.wallets.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="bp-label mb-2" style={{ fontSize: "10px" }}>
+                      NO SIGNERS DETECTED
+                    </div>
+                    <p
+                      className="bp-editorial"
+                      style={{ fontSize: "13px", opacity: 0.6 }}
+                    >
+                      Install Phantom, Solflare, Backpack, or Glow and reload.
+                    </p>
+                  </div>
+                )}
+
+                {sol.wallets.map((w, i) => (
+                  <button
+                    key={w.adapter.name}
+                    onClick={() => signInWithWalletStandard(w.adapter.name)}
+                    disabled={authLoading !== null}
+                    className="w-full flex items-center justify-between px-4 py-4 transition-all disabled:opacity-50"
+                    style={{
+                      border: "1px solid rgba(31, 26, 20, 0.12)",
+                      background: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--teal)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(31, 26, 20, 0.12)";
+                    }}
+                  >
+                    <div className="text-left">
+                      <div
+                        className="bp-label"
+                        style={{ fontSize: "10px", marginBottom: "6px" }}
+                      >
+                        WALLET · {String(i + 1).padStart(2, "0")}
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 300,
+                          fontSize: "17px",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          color: "var(--bone)",
+                        }}
+                      >
+                        {w.adapter.name}
+                      </div>
+                    </div>
+                    <span
+                      className="bp-label"
+                      style={{ fontSize: "9px", opacity: 0.55 }}
+                    >
+                      {authLoading === "wallet" ? "SIGNING…" : w.readyState}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div
+                className="px-6 py-4"
+                style={{
+                  borderTop: "1px solid rgba(31, 26, 20, 0.06)",
+                  flexShrink: 0,
+                }}
+              >
+                <p
+                  className="bp-label"
+                  style={{ fontSize: "9px", letterSpacing: "0.2em" }}
+                >
+                  By connecting, you sign a message to verify wallet ownership.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
