@@ -51,21 +51,45 @@ export default function LoginPage() {
         throw new Error("No Solana wallet detected. Install Phantom or Solflare and reload.");
       }
 
-      // Connect (opens the wallet popup)
-      const connectRes = await provider.connect();
-      const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
-      if (!pk) throw new Error(`${walletName} did not return a public key.`);
-      const pubkey = pk.toBase58();
+      // Use the wallet's signIn (SIWS) instead of signMessage. Phantom's
+      // signMessage has been throwing "Me: Unexpected error" for some users
+      // — signIn is a separate code path and is the modern Solana standard.
+      type SignInResult = {
+        signature: Uint8Array;
+        signedMessage: Uint8Array;
+        account: { publicKey: { toBase58?: () => string } | string };
+      };
+      type SolProviderWithSignIn = SolProvider & {
+        signIn?: (input: { domain?: string; statement?: string; uri?: string }) => Promise<SignInResult>;
+      };
+      const provSI = provider as SolProviderWithSignIn;
 
-      // Sign the canonical message
-      const msg = new TextEncoder().encode(`Sign in to Breath Protocol\n\nWallet: ${pubkey}`);
-      const signRes = await provider.signMessage(msg);
-      const sigBytes: Uint8Array =
-        signRes instanceof Uint8Array
-          ? signRes
-          : (signRes as { signature: Uint8Array }).signature;
+      let pubkey: string;
+      let sigBytes: Uint8Array;
 
-      // base58 encode signature (Solana convention)
+      if (typeof provSI.signIn === "function") {
+        const r = await provSI.signIn({
+          domain: window.location.host,
+          statement: "Sign in to Breath Protocol",
+          uri: window.location.origin,
+        });
+        sigBytes = r.signature;
+        const acct = r.account.publicKey;
+        pubkey = typeof acct === "string" ? acct : acct.toBase58!();
+      } else {
+        // Older wallets without signIn — fall back to connect + signMessage
+        const connectRes = await provider.connect();
+        const pk = (connectRes?.publicKey ?? provider.publicKey) as { toBase58: () => string } | null | undefined;
+        if (!pk) throw new Error(`${walletName} did not return a public key.`);
+        pubkey = pk.toBase58();
+        const msg = new TextEncoder().encode(`Sign in to Breath Protocol\n\nWallet: ${pubkey}`);
+        const signRes = await provider.signMessage(msg);
+        sigBytes =
+          signRes instanceof Uint8Array
+            ? signRes
+            : (signRes as { signature: Uint8Array }).signature;
+      }
+
       const { default: bs58 } = await import("bs58");
       const sigBase58 = bs58.encode(sigBytes);
 
