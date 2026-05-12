@@ -3,12 +3,16 @@
 /**
  * BreathPrint section for the dashboard Explorer.
  *
- * Reads `?wallet=<solana_pubkey>` from the URL and queries Light Protocol
- * compression signatures via the Helius RPC indexer. Renders a list of the
- * user's on-chain biometric attestations with Solscan links.
+ * Resolves attestations from two sources, merged by tx signature:
+ *   1. Supabase `public.attestations` — rows the verify.breath.id flow
+ *      inserts after each successful run. Always available.
+ *   2. Helius RPC compression-signature indexer — real on-chain
+ *      attestations from the BreathPrint program once it's broadcasting.
+ *      Skipped silently when the API key is missing or rejected.
  *
- * No wallet-adapter dependency — wallet pubkey comes from URL or a prop, so
- * this works in the existing EVM-focused app without restructuring providers.
+ * Wallet pubkey comes from explicit prop, the connected wallet in
+ * AuthProvider, or `?wallet=<pubkey>` on the URL (used by the
+ * cross-domain handoff from verify.breath.id).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +20,7 @@ import { useSearchParams } from "next/navigation";
 import { PublicKey } from "@solana/web3.js";
 import { createRpc } from "@lightprotocol/stateless.js";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
 const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY ?? "";
 const PROGRAM_ID =
@@ -73,32 +78,75 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
   const [txs, setTxs] = useState<TxRecord[]>([]);
 
   useEffect(() => {
-    if (!wallet || !rpc) return;
+    if (!wallet) return;
     let cancelled = false;
     (async () => {
       setLoading(true); setError(null);
+
+      // 1) Supabase attestations (verify.breath.id writes here). Always
+      //    available, lower-case lookup so casing doesn't matter.
+      const supabaseRecords: TxRecord[] = [];
       try {
-        const sigs = await rpc.getCompressionSignaturesForOwner(wallet);
-        const records: TxRecord[] = (sigs.items ?? []).map((sig: { signature: string; slot?: number; blockTime?: number; type?: string }) => ({
-          signature: sig.signature,
-          slot: sig.slot ?? 0,
-          blockTime: sig.blockTime ?? null,
-          type: sig.type ?? "compressed",
-          solscanUrl: solscanTx(sig.signature),
-        }));
-        if (!cancelled) setTxs(records);
+        const { data, error: dbErr } = await supabase
+          .from("attestations")
+          .select("tx_signature, attestation_type, slot, created_at, cluster")
+          .ilike("wallet_address", wallet.toBase58())
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (dbErr) throw dbErr;
+        for (const row of data ?? []) {
+          supabaseRecords.push({
+            signature: row.tx_signature,
+            slot: row.slot ?? 0,
+            blockTime: row.created_at
+              ? Math.floor(new Date(row.created_at).getTime() / 1000)
+              : null,
+            type: row.attestation_type ?? "breathprint",
+            solscanUrl: solscanTx(row.tx_signature),
+          });
+        }
       } catch (e) {
-        if (!cancelled) {
-          // Helius returns 401 when the API key is invalid/expired and we
-          // don't want to leak that to end users. Treat any RPC failure as
-          // "no data available" — the UI shows the empty-state instead.
+        console.warn("[breathprint] supabase fetch failed:", e);
+      }
+
+      // 2) Helius on-chain index (optional — silenced on 401/no key).
+      const onchainRecords: TxRecord[] = [];
+      if (rpc) {
+        try {
+          const sigs = await rpc.getCompressionSignaturesForOwner(wallet);
+          for (const sig of (sigs.items ?? []) as {
+            signature: string;
+            slot?: number;
+            blockTime?: number;
+            type?: string;
+          }[]) {
+            onchainRecords.push({
+              signature: sig.signature,
+              slot: sig.slot ?? 0,
+              blockTime: sig.blockTime ?? null,
+              type: sig.type ?? "compressed",
+              solscanUrl: solscanTx(sig.signature),
+            });
+          }
+        } catch (e) {
           const msg = e instanceof Error ? e.message : "";
           console.warn("[breathprint] RPC unreachable:", msg);
-          setError(null);
-          setTxs([]);
         }
-      } finally {
-        if (!cancelled) setLoading(false);
+      }
+
+      // Merge, dedupe by signature, newest first.
+      const merged = new Map<string, TxRecord>();
+      for (const r of [...onchainRecords, ...supabaseRecords]) {
+        merged.set(r.signature, r);
+      }
+      const records = Array.from(merged.values()).sort(
+        (a, b) => (b.blockTime ?? 0) - (a.blockTime ?? 0),
+      );
+
+      if (!cancelled) {
+        setTxs(records);
+        setError(null);
+        setLoading(false);
       }
     })();
     return () => { cancelled = true; };
