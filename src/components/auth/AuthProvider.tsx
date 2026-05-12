@@ -149,7 +149,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       /invalid login credentials|email not confirmed|user not found/i.test(signInError.message);
 
     if (looksMissing) {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: walletEmail,
         password: walletPassword,
         options: {
@@ -165,9 +165,17 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         console.error("[signInWithSolana] signUp failed:", signUpError);
         throw new Error(`Sign-up failed: ${signUpError.message}`);
       }
-      if (!signUpData.session) {
+      // Newer Supabase signUp doesn't always return a session even with
+      // autoconfirm enabled. Sign in explicitly to attach a session.
+      const { data: postSignInData, error: postSignInError } = await supabase.auth.signInWithPassword({
+        email: walletEmail,
+        password: walletPassword,
+      });
+      if (postSignInError || !postSignInData?.session) {
+        console.error("[signInWithSolana] post-signup signIn failed:", postSignInError);
         throw new Error(
-          "Sign-up succeeded but no session was created. Check Supabase 'Confirm email' setting (should be off for synthetic emails)."
+          postSignInError?.message ||
+            "Account was created but sign-in failed. Try clicking again."
         );
       }
       setWalletAddress(address);
