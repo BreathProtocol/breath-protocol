@@ -23,9 +23,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
 const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY ?? "";
-const PROGRAM_ID =
-  process.env.NEXT_PUBLIC_BREATHPRINT_PROGRAM_ID ??
-  "BPrnt1111111111111111111111111111111111111";
 const NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK ?? "devnet";
 
 interface TxRecord {
@@ -78,21 +75,22 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
   const [txs, setTxs] = useState<TxRecord[]>([]);
 
   useEffect(() => {
-    if (!wallet) return;
     let cancelled = false;
     (async () => {
       setLoading(true); setError(null);
 
       // 1) Supabase attestations (verify.breath.id writes here). Always
-      //    available, lower-case lookup so casing doesn't matter.
+      //    available. If we have a wallet, filter by it; otherwise show
+      //    the most recent rows globally so the demo always has content.
       const supabaseRecords: TxRecord[] = [];
       try {
-        const { data, error: dbErr } = await supabase
+        let q = supabase
           .from("attestations")
-          .select("tx_signature, attestation_type, slot, created_at, cluster")
-          .ilike("wallet_address", wallet.toBase58())
+          .select("tx_signature, attestation_type, slot, created_at, cluster, wallet_address")
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(50);
+        if (wallet) q = q.ilike("wallet_address", wallet.toBase58());
+        const { data, error: dbErr } = await q;
         if (dbErr) throw dbErr;
         for (const row of data ?? []) {
           supabaseRecords.push({
@@ -110,8 +108,9 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
       }
 
       // 2) Helius on-chain index (optional — silenced on 401/no key).
+      //    Only meaningful when we have a wallet to query for.
       const onchainRecords: TxRecord[] = [];
-      if (rpc) {
+      if (rpc && wallet) {
         try {
           const sigs = await rpc.getCompressionSignaturesForOwner(wallet);
           for (const sig of (sigs.items ?? []) as {
@@ -164,32 +163,14 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
             ZK-compressed biometric commitments on Solana {NETWORK}. ~0.0003 SOL per attestation.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="bp-label" style={{ opacity: 0.6 }}>Sign in to view your attestations</span>
-          <a
-            href={solscanAccount(PROGRAM_ID)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bp-label"
-            style={{ fontSize: "10px", color: "var(--teal)" }}
-          >
-            PROGRAM {shortHash(PROGRAM_ID, 6, 4)} ↗
-          </a>
-        </div>
       </div>
 
-      {!wallet && (
-        <div className="text-sm bp-editorial" style={{ opacity: 0.65 }}>
-          Connect a Solana wallet via Web3Auth to view your on-chain BreathPrint
-          attestations. You can also append <code>?wallet=&lt;solana_pubkey&gt;</code>
-          to inspect any specimen.
-        </div>
-      )}
-
-      {wallet && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <div className="bp-eyebrow mb-2">SPECIMEN</div>
+      {/* Stats row — always visible. ATTESTATIONS count is zero-padded
+          so a brand-new user lands on "01" right after their first proof. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div className="bp-eyebrow mb-2">SPECIMEN</div>
+          {wallet ? (
             <a
               href={solscanAccount(wallet.toBase58())}
               target="_blank"
@@ -199,29 +180,37 @@ export default function BreathPrintSection({ wallet: walletProp }: BreathPrintSe
             >
               {shortHash(wallet.toBase58(), 8, 6)} ↗
             </a>
-          </div>
-          <div>
-            <div className="bp-eyebrow mb-2">ATTESTATIONS</div>
-            <div className="bp-display" style={{ fontSize: "28px", color: "var(--bone)" }}>
-              {loading ? "…" : txs.length}
+          ) : (
+            <div className="bp-readout" style={{ fontSize: "12px", opacity: 0.5 }}>
+              —
             </div>
-          </div>
-          <div>
-            <div className="bp-eyebrow mb-2">NETWORK</div>
-            <div className="bp-readout" style={{ fontSize: "12px" }}>{NETWORK.toUpperCase()}</div>
-          </div>
+          )}
         </div>
-      )}
-
-      {error && (
-        <div className="text-sm" style={{ color: "#FF6B8F" }}>
-          <span className="bp-label">RPC ERROR · </span>{error}
+        <div>
+          <div className="bp-eyebrow mb-2">PROOFS</div>
+          <div
+            className="bp-display"
+            style={{ fontSize: "28px", color: "var(--bone)" }}
+          >
+            {loading
+              ? "…"
+              : String(txs.length).padStart(2, "0")}
+          </div>
+          {!loading && txs.length > 0 && (
+            <div className="bp-label" style={{ fontSize: "10px", marginTop: "4px" }}>
+              {txs.length === 1 ? "PROOF REGISTERED" : "PROOFS REGISTERED"}
+            </div>
+          )}
         </div>
-      )}
+        <div>
+          <div className="bp-eyebrow mb-2">NETWORK</div>
+          <div className="bp-readout" style={{ fontSize: "12px" }}>{NETWORK.toUpperCase()}</div>
+        </div>
+      </div>
 
-      {wallet && !loading && !error && txs.length === 0 && (
+      {!loading && txs.length === 0 && (
         <div className="bp-editorial text-sm" style={{ opacity: 0.55 }}>
-          No on-chain attestations for this specimen yet.
+          No attestations yet. Complete a biometric verification to register your first proof.
         </div>
       )}
 

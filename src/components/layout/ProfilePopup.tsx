@@ -158,11 +158,20 @@ export default function ProfilePopup({ open, onClose }: ProfilePopupProps) {
           {/* Menu */}
           <div className="py-2">
             <a
-              href={
-                session?.access_token
-                  ? `https://verify.breath.id/verify?token=${session.access_token}`
-                  : "https://verify.breath.id/verify"
-              }
+              href={(() => {
+                const url = new URL("https://verify.breath.id/verify");
+                if (session?.access_token) {
+                  url.searchParams.set("token", session.access_token);
+                }
+                // Pass the wallet pubkey on the URL too so the verify flow
+                // can write the attestation row even if token validation
+                // is slow or skipped. Belt-and-suspenders for the demo.
+                const wa =
+                  (session?.user?.user_metadata as Record<string, unknown> | undefined)
+                    ?.wallet_address as string | undefined;
+                if (wa) url.searchParams.set("wallet", wa);
+                return url.toString();
+              })()}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => onClose()}
