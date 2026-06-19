@@ -42,7 +42,7 @@ export default function DevelopersPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === "1";
+  const bypassAuth = true; /* gate removed — direct URL access */
 
   useEffect(() => {
     if (bypassAuth) return;
