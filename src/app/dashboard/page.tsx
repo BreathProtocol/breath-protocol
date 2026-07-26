@@ -11,7 +11,6 @@ import PromoCarousel from "@/components/home/PromoCarousel";
 import GettingStarted from "@/components/home/GettingStarted";
 import CredentialCards from "@/components/home/CredentialCards";
 import SupportFAQ from "@/components/home/SupportFAQ";
-import BreathIndex from "@/components/sidebar-widgets/BreathIndex";
 import MyCredentials from "@/components/sidebar-widgets/MyCredentials";
 import TokenWidget from "@/components/sidebar-widgets/TokenWidget";
 import HelpCenter from "@/components/sidebar-widgets/HelpCenter";
@@ -86,7 +85,6 @@ export default function DashboardPage() {
 
             {/* Sidebar widgets stacked below on mobile/tablet */}
             <div className="xl:hidden space-y-4 pt-4">
-              <BreathIndex />
               <MyCredentials />
               <TokenWidget />
               <HelpCenter />
@@ -101,7 +99,6 @@ export default function DashboardPage() {
           className="hidden xl:block w-[320px] flex-shrink-0 overflow-y-auto px-4 py-6 space-y-4"
           style={{ borderLeft: "1px solid var(--violet)" }}
         >
-          <BreathIndex />
           <MyCredentials />
           <TokenWidget />
           <HelpCenter />

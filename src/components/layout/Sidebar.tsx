@@ -39,23 +39,6 @@ export default function Sidebar({ activePage = "home" }: SidebarProps) {
         WebkitBackdropFilter: "blur(6px)",
       }}
     >
-      {/* Brand */}
-      <Link href="/dashboard" className="px-6 pt-20 pb-6 flex items-center gap-2.5">
-        <span
-          className="w-[6px] h-[6px] rounded-full animate-dot-pulse"
-          style={{
-            background: "var(--teal)",
-            boxShadow: "0 0 8px var(--teal)",
-          }}
-        />
-        <span
-          className="bp-label"
-          style={{ color: "var(--bone)", fontSize: "11px" }}
-        >
-          BREATH / 00
-        </span>
-      </Link>
-
       {/* Navigation */}
       <nav className="flex-1 px-3 mt-2 stagger-children space-y-px">
         {navItems.map((item) => {
@@ -122,20 +105,6 @@ export default function Sidebar({ activePage = "home" }: SidebarProps) {
           );
         })}
       </nav>
-
-      {/* Footer */}
-      <div className="px-6 pb-16">
-        <div
-          className="h-px mb-4"
-          style={{ background: "var(--bone-10)" }}
-        />
-        <p
-          className="bp-label"
-          style={{ fontSize: "9px", letterSpacing: "0.3em" }}
-        >
-          v0.04 · BCN
-        </p>
-      </div>
     </aside>
   );
 }
